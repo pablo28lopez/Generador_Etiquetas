@@ -43,3 +43,30 @@ tr.row-selected {
 tr.row-hover:hover {
   background-color: #f1f5f9;
 }
+
+/* Aspect ratios de previsualización */
+.preview-box-60x30 {
+  aspect-ratio: 2 / 1;
+  max-height: 240px;
+}
+
+.preview-box-60x90 {
+  aspect-ratio: 2 / 3;
+  max-height: 380px;
+}
+
+/* Botones toggle de tamaño */
+.btn-size-toggle {
+  user-select: none;
+}
+.btn-size-toggle.active {
+  border-color: #4f46e5 !important;
+  background-color: #eef2ff !important;
+  color: #312e81 !important;
+}
+.btn-size-toggle.active .size-check-box {
+  background-color: #4f46e5 !important;
+  border-color: #4f46e5 !important;
+  color: #ffffff !important;
+}
+

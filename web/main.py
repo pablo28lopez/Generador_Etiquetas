@@ -2,7 +2,7 @@ import io
 import os
 import re
 import zipfile
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query
 from fastapi.responses import Response, StreamingResponse, FileResponse
@@ -96,7 +96,7 @@ def clean_filename(name: str) -> str:
     return re.sub(r'[^A-Za-z0-9_-]', '_', str(name).strip())
 
 
-def generate_barcode_image(item: str) -> Optional[Image.Image]:
+def generate_barcode_image(item: str, target_size: Tuple[int, int] = (595, 120)) -> Optional[Image.Image]:
     """Genera la imagen del código de barras Code39 recortado al 70% de altura."""
     try:
         item_str = str(item).strip().upper()
@@ -117,55 +117,107 @@ def generate_barcode_image(item: str) -> Optional[Image.Image]:
             img_rgb = raw_img.convert("RGB")
             width, height = img_rgb.size
             img_cropped = img_rgb.crop((0, 0, width, int(height * 0.70)))
-            return img_cropped.resize((595, 120))
+            return img_cropped.resize(target_size)
     except Exception as e:
         print(f"Error generando código de barras para '{item}': {e}")
         return None
 
 
-def create_label_image(item: str, description: str) -> Optional[Image.Image]:
-    """Genera la imagen completa de la etiqueta 600x300 px."""
-    bc_img = generate_barcode_image(item)
-    if bc_img is None:
-        return None
-
-    ancho, alto = 600, 300
-    label = Image.new('RGB', (ancho, alto), 'white')
-    draw = ImageDraw.Draw(label)
-
-    font_item = get_font("arialbd.ttf", 80)
-    font_description = get_font("arial.ttf", 22)
-
-    # Pegar código de barras
-    bc_x = (ancho - bc_img.width) // 2
-    bc_y = 10
-    label.paste(bc_img, (bc_x, bc_y))
-
-    # Número de ítem debajo del código
+def create_label_image(item: str, description: str, size: str = "60x30") -> Optional[Image.Image]:
+    """Genera la imagen completa de la etiqueta térmica:
+       - 60x30 mm: 600x300 px (horizontal estándar)
+       - 60x90 mm: 600x900 px (vertical extendida con descripción multilínea)
+    """
     item_text = str(item).upper().strip()
-    bbox_item = draw.textbbox((0, 0), item_text, font=font_item)
-    item_w = bbox_item[2] - bbox_item[0]
-    item_x = (ancho - item_w) // 2
-    item_y = bc_y + 120 - 15
-    draw.text((item_x, item_y), item_text, fill='black', font=font_item)
-
-    # Descripción debajo del ítem
     desc_text = str(description).upper().strip()
-    bbox_desc = draw.textbbox((0, 0), desc_text, font=font_description)
-    desc_w = bbox_desc[2] - bbox_desc[0]
 
-    if desc_w > (ancho - 20):
-        while len(desc_text) > 4 and (draw.textbbox((0, 0), desc_text + "...", font=font_description)[2] - draw.textbbox((0, 0), desc_text + "...", font=font_description)[0]) > (ancho - 20):
-            desc_text = desc_text[:-1]
-        desc_text = desc_text + "..."
+    if size == "60x90":
+        # Formato 60x90 mm (600x900 px, proporción 2:3)
+        bc_img = generate_barcode_image(item_text, target_size=(580, 200))
+        if bc_img is None:
+            return None
+
+        ancho, alto = 600, 900
+        label = Image.new('RGB', (ancho, alto), 'white')
+        draw = ImageDraw.Draw(label)
+
+        # 1. Pegar código de barras ampliado arriba
+        bc_x = (ancho - bc_img.width) // 2
+        bc_y = 35
+        label.paste(bc_img, (bc_x, bc_y))
+
+        # 2. Código de ítem grande y prominente
+        font_item = get_font("arialbd.ttf", 92)
+        bbox_item = draw.textbbox((0, 0), item_text, font=font_item)
+        item_w = bbox_item[2] - bbox_item[0]
+        item_x = (ancho - item_w) // 2
+        item_y = bc_y + 200 + 15
+        draw.text((item_x, item_y), item_text, fill='black', font=font_item)
+
+        # 3. Línea divisoria moderna
+        draw.line([(30, 375), (570, 375)], fill='#888888', width=3)
+
+        # 4. Descripción multilínea de alta legibilidad
+        import textwrap
+        font_desc = get_font("arial.ttf", 36)
+        lines = textwrap.wrap(desc_text, width=24)[:6]
+        desc_start_y = 405
+        line_height = 48
+        for i, line in enumerate(lines):
+            bbox_line = draw.textbbox((0, 0), line, font=font_desc)
+            line_w = bbox_line[2] - bbox_line[0]
+            line_x = (ancho - line_w) // 2
+            draw.text((line_x, desc_start_y + (i * line_height)), line, fill='black', font=font_desc)
+
+        # 5. Pie de etiqueta térmico
+        draw.line([(30, 820), (570, 820)], fill='#CCCCCC', width=2)
+        font_sub = get_font("arial.ttf", 20)
+        draw.text((35, 835), item_text, fill='#555555', font=font_sub)
+        draw.text((440, 835), '60 x 90 mm', fill='#555555', font=font_sub)
+
+        return label
+
+    else:
+        # Formato estándar 60x30 mm (600x300 px)
+        bc_img = generate_barcode_image(item_text, target_size=(595, 120))
+        if bc_img is None:
+            return None
+
+        ancho, alto = 600, 300
+        label = Image.new('RGB', (ancho, alto), 'white')
+        draw = ImageDraw.Draw(label)
+
+        font_item = get_font("arialbd.ttf", 80)
+        font_description = get_font("arial.ttf", 22)
+
+        # Pegar código de barras
+        bc_x = (ancho - bc_img.width) // 2
+        bc_y = 10
+        label.paste(bc_img, (bc_x, bc_y))
+
+        # Número de ítem debajo del código
+        bbox_item = draw.textbbox((0, 0), item_text, font=font_item)
+        item_w = bbox_item[2] - bbox_item[0]
+        item_x = (ancho - item_w) // 2
+        item_y = bc_y + 120 - 15
+        draw.text((item_x, item_y), item_text, fill='black', font=font_item)
+
+        # Descripción debajo del ítem
         bbox_desc = draw.textbbox((0, 0), desc_text, font=font_description)
         desc_w = bbox_desc[2] - bbox_desc[0]
 
-    desc_x = (ancho - desc_w) // 2
-    desc_y = item_y + (bbox_item[3] - bbox_item[1]) + 25
-    draw.text((desc_x, desc_y), desc_text, fill='black', font=font_description)
+        if desc_w > (ancho - 20):
+            while len(desc_text) > 4 and (draw.textbbox((0, 0), desc_text + "...", font=font_description)[2] - draw.textbbox((0, 0), desc_text + "...", font=font_description)[0]) > (ancho - 20):
+                desc_text = desc_text[:-1]
+            desc_text = desc_text + "..."
+            bbox_desc = draw.textbbox((0, 0), desc_text, font=font_description)
+            desc_w = bbox_desc[2] - bbox_desc[0]
 
-    return label
+        desc_x = (ancho - desc_w) // 2
+        desc_y = item_y + (bbox_item[3] - bbox_item[1]) + 25
+        draw.text((desc_x, desc_y), desc_text, fill='black', font=font_description)
+
+        return label
 
 
 # ==========================================
@@ -180,6 +232,7 @@ class ItemRequest(BaseModel):
 class GeneratePdfRequest(BaseModel):
     items: List[ItemRequest]
     filename: Optional[str] = "etiquetas"
+    size: Optional[str] = "60x30"
     width_mm: Optional[float] = 60.0
     height_mm: Optional[float] = 30.0
 
@@ -205,9 +258,13 @@ def health():
 
 
 @app.get("/api/preview-label")
-def preview_label(item: str = Query("012345"), description: str = Query("EJEMPLO DE DESCRIPCIÓN")):
-    """Devuelve la imagen JPEG generada en vivo para previsualización."""
-    img = create_label_image(item, description)
+def preview_label(
+    item: str = Query("012345"),
+    description: str = Query("EJEMPLO DE DESCRIPCIÓN"),
+    size: str = Query("60x30")
+):
+    """Devuelve la imagen JPEG generada en vivo para previsualización (60x30 o 60x90)."""
+    img = create_label_image(item, description, size=size)
     if not img:
         raise HTTPException(status_code=400, detail="No se pudo generar la etiqueta")
 
@@ -393,18 +450,25 @@ async def upload_excel(file: UploadFile = File(...)):
 
 @app.post("/api/generate-pdf")
 def generate_pdf(req: GeneratePdfRequest):
-    """Genera el documento PDF de etiquetas en memoria."""
+    """Genera el documento PDF de etiquetas en memoria adaptado a 60x30 mm o 60x90 mm."""
     if not req.items:
         raise HTTPException(status_code=400, detail="La lista de ítems está vacía")
 
-    pdf = FPDF("P", "mm", (req.width_mm, req.height_mm))
+    # Determinar tamaño efectivo
+    label_size = req.size or ("60x90" if (req.height_mm or 30.0) >= 80.0 else "60x30")
+    if label_size == "60x90":
+        w_mm, h_mm = 60.0, 90.0
+    else:
+        w_mm, h_mm = 60.0, 30.0
+
+    pdf = FPDF("P", "mm", (w_mm, h_mm))
     total_etiquetas = 0
 
     for it in req.items:
         if it.qty <= 0 or not it.item.strip():
             continue
 
-        label_img = create_label_image(it.item, it.description)
+        label_img = create_label_image(it.item, it.description, size=label_size)
         if not label_img:
             continue
 
@@ -414,7 +478,7 @@ def generate_pdf(req: GeneratePdfRequest):
 
         for _ in range(it.qty):
             pdf.add_page()
-            pdf.image(img_buf, x=0, y=0, w=req.width_mm, h=req.height_mm)
+            pdf.image(img_buf, x=0, y=0, w=w_mm, h=h_mm)
             total_etiquetas += 1
 
     if total_etiquetas == 0:
@@ -424,7 +488,7 @@ def generate_pdf(req: GeneratePdfRequest):
     pdf.output(pdf_output)
     pdf_output.seek(0)
 
-    nombre_descarga = f"{clean_filename(req.filename or 'etiquetas')}.pdf"
+    nombre_descarga = f"{clean_filename(req.filename or 'etiquetas')}_{label_size}.pdf"
 
     return StreamingResponse(
         pdf_output,
@@ -441,16 +505,17 @@ def download_zip(req: GeneratePdfRequest):
     if not req.items:
         raise HTTPException(status_code=400, detail="No hay ítems para comprimir")
 
+    label_size = req.size or ("60x90" if (req.height_mm or 30.0) >= 80.0 else "60x30")
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
         for it in req.items:
             if not it.item.strip():
                 continue
-            label_img = create_label_image(it.item, it.description)
+            label_img = create_label_image(it.item, it.description, size=label_size)
             if label_img:
                 img_buf = io.BytesIO()
                 label_img.save(img_buf, format="JPEG", quality=95)
-                filename = f"{clean_filename(it.item)}.jpg"
+                filename = f"{clean_filename(it.item)}_{label_size}.jpg"
                 zip_file.writestr(filename, img_buf.getvalue())
 
     zip_buffer.seek(0)

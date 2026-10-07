@@ -5,12 +5,16 @@ let loadedFileName = "etiquetas";
 let debounceTimer = null;
 let catalogDebounceTimer = null;
 let deferredPrompt = null;
+let selectedLabelSize = "60x30";
+let lastPreviewItem = "012345";
+let lastPreviewDesc = "EJEMPLO DE ETIQUETA";
 
 // Inicialización
 document.addEventListener("DOMContentLoaded", () => {
   if (window.lucide) lucide.createIcons();
   setupPWA();
   setupTabs();
+  setupSizeSelector();
   setupCatalogSearch();
   setupAddModal();
   setupDragAndDrop();
@@ -109,6 +113,85 @@ function setupTabs() {
       });
     });
   });
+}
+
+// 1.1 Selector de Tamaño de Etiquetas (60x30 mm vs 60x90 mm)
+function setupSizeSelector() {
+  const btn30 = document.getElementById("btn-size-60x30");
+  const btn90 = document.getElementById("btn-size-60x90");
+
+  if (!btn30 || !btn90) return;
+
+  btn30.addEventListener("click", () => setLabelSize("60x30"));
+  btn90.addEventListener("click", () => setLabelSize("60x90"));
+}
+
+function setLabelSize(size) {
+  selectedLabelSize = size;
+  const btn30 = document.getElementById("btn-size-60x30");
+  const btn90 = document.getElementById("btn-size-60x90");
+  const badge = document.getElementById("badge-preview-size");
+  const container = document.getElementById("preview-container");
+  const pdfBtnLabel = document.getElementById("lbl-btn-pdf");
+
+  if (size === "60x90") {
+    // 60x90 activo
+    btn30.classList.remove("active", "border-indigo-600", "bg-indigo-50/70", "text-indigo-900");
+    btn30.classList.add("border-slate-200", "bg-slate-50", "text-slate-700");
+    const check30 = btn30.querySelector(".size-check-box");
+    if (check30) {
+      check30.className = "size-check-box w-4 h-4 rounded-full border border-slate-300 bg-white text-transparent flex items-center justify-center shrink-0";
+    }
+
+    btn90.classList.add("active", "border-indigo-600", "bg-indigo-50/70", "text-indigo-900");
+    btn90.classList.remove("border-slate-200", "bg-slate-50", "text-slate-700");
+    const check90 = btn90.querySelector(".size-check-box");
+    if (check90) {
+      check90.className = "size-check-box w-4 h-4 rounded-full border border-indigo-600 bg-indigo-600 text-white flex items-center justify-center shrink-0";
+    }
+
+    if (badge) {
+      badge.textContent = "60 x 90 mm";
+      badge.className = "text-[11px] font-mono bg-purple-50 text-purple-700 font-bold px-2 py-0.5 rounded border border-purple-200";
+    }
+
+    if (container) {
+      container.classList.remove("preview-box-60x30");
+      container.classList.add("preview-box-60x90");
+    }
+
+    if (pdfBtnLabel) pdfBtnLabel.textContent = "Descargar PDF (60x90 mm)";
+  } else {
+    // 60x30 activo
+    btn90.classList.remove("active", "border-indigo-600", "bg-indigo-50/70", "text-indigo-900");
+    btn90.classList.add("border-slate-200", "bg-slate-50", "text-slate-700");
+    const check90 = btn90.querySelector(".size-check-box");
+    if (check90) {
+      check90.className = "size-check-box w-4 h-4 rounded-full border border-slate-300 bg-white text-transparent flex items-center justify-center shrink-0";
+    }
+
+    btn30.classList.add("active", "border-indigo-600", "bg-indigo-50/70", "text-indigo-900");
+    btn30.classList.remove("border-slate-200", "bg-slate-50", "text-slate-700");
+    const check30 = btn30.querySelector(".size-check-box");
+    if (check30) {
+      check30.className = "size-check-box w-4 h-4 rounded-full border border-indigo-600 bg-indigo-600 text-white flex items-center justify-center shrink-0";
+    }
+
+    if (badge) {
+      badge.textContent = "60 x 30 mm";
+      badge.className = "text-[11px] font-mono bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded border border-indigo-200";
+    }
+
+    if (container) {
+      container.classList.remove("preview-box-60x90");
+      container.classList.add("preview-box-60x30");
+    }
+
+    if (pdfBtnLabel) pdfBtnLabel.textContent = "Descargar PDF (60x30 mm)";
+  }
+
+  if (window.lucide) lucide.createIcons();
+  updatePreview(lastPreviewItem, lastPreviewDesc);
 }
 
 // 2. Base de Datos / Catálogo (DATOS_DEPO.xlsx)
@@ -598,19 +681,25 @@ function updateTotals() {
 
 // 7. Previsualizador en Vivo
 function updatePreview(item, description) {
+  if (item) lastPreviewItem = item;
+  if (description) lastPreviewDesc = description;
+
+  const it = lastPreviewItem || "012345";
+  const de = lastPreviewDesc || "EJEMPLO DE ETIQUETA";
+
   const img = document.getElementById("preview-image");
   const loader = document.getElementById("preview-loading");
 
-  loader.classList.remove("hidden");
-  const url = `/api/preview-label?item=${encodeURIComponent(item)}&description=${encodeURIComponent(description)}`;
+  if (loader) loader.classList.remove("hidden");
+  const url = `/api/preview-label?item=${encodeURIComponent(it)}&description=${encodeURIComponent(de)}&size=${selectedLabelSize}`;
 
   const tempImg = new Image();
   tempImg.onload = () => {
     img.src = url;
-    loader.classList.add("hidden");
+    if (loader) loader.classList.add("hidden");
   };
   tempImg.onerror = () => {
-    loader.classList.add("hidden");
+    if (loader) loader.classList.add("hidden");
   };
   tempImg.src = url;
 }
@@ -635,8 +724,9 @@ function setupExportEvents() {
         qty: i.qty
       })),
       filename: loadedFileName || "etiquetas",
+      size: selectedLabelSize,
       width_mm: 60.0,
-      height_mm: 30.0
+      height_mm: selectedLabelSize === "60x90" ? 90.0 : 30.0
     };
   }
 

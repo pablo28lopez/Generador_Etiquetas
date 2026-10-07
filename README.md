@@ -78,6 +78,12 @@ Acceso desde cualquier navegador en: `http://localhost:8000` (o la IP de tu serv
 ### Instalación como PWA:
 - Abre la web en Chrome, Edge o móvil y haz clic en **"Instalar App"** en la barra superior para agregarla como aplicación de escritorio o acceso móvil.
 
+### 📏 Soporte de Tamaños de Etiquetas (60x30 mm y 60x90 mm):
+- **Botones Selector Tipo Check:** Permite alternar en tiempo real entre el tamaño actual (**60 x 30 mm**, 600x300 px) y el tamaño grande (**60 x 90 mm**, 600x900 px).
+- **Vista Previa Adaptativa:** El contenedor de vista previa ajusta automáticamente su relación de aspecto (2:1 para 60x30 y 2:3 para 60x90).
+- **Diseño 60x90 mm:** Código de barras Code39 ampliado, código de ítem en gran formato (92 pt) y descripción multilínea con envoltura automática de hasta 6 líneas y línea divisoria de alta legibilidad para el depósito.
+- **Exportación Consistente:** La descarga de PDF, la descarga de ZIP y la impresión directa por navegador generan las dimensiones exactas seleccionadas.
+
 ### 📚 Base de Datos Integrada (DATOS_DEPO.xlsx):
 - **Catálogo de ~36.800 ítems:** Búsqueda ultrarrápida en memoria RAM por código o descripción.
 - **Botón "➕ Nuevo Ítem en Base":** Permite agregar nuevos registros directamente al archivo Excel `DATOS_DEPO.xlsx` respetando el formato original de 4 columnas (`[Código, UOM, None, Descripción]`).
@@ -96,6 +102,7 @@ Este proyecto utiliza ramas estándar y **tags anotados** para registrar el hist
 - **`v1.2.1`**: Guía completa de distribución y compartición de la suite.
 - **`v1.3.0`**: Integración de Base de Datos Excel (`DATOS_DEPO.xlsx`), buscador en tiempo real entre ~36.800 ítems, modal para agregar ítems al Excel en el mismo formato original y persistencia en Docker via volumen `data/`.
 - **`v1.3.1`**: Lanzadores de 1 clic silenciosos (`iniciar_app.bat`, `iniciar_app.vbs`), apertura en modo ventana app (`--app`) y accesos directos oficiales en el Escritorio de Windows con icono institucional.
+- **`v1.4.0`**: Selector de 2 tamaños de etiqueta tipo check (**60 x 30 mm** y **60 x 90 mm**), rediseño de vista previa en vivo proporcional, formato multilínea optimizado para 60x90, y exportación PDF/ZIP adaptada a ambas medidas térmicas.
 
 ### Publicar en tu repositorio de GitHub:
 Para subir este proyecto a tu cuenta de GitHub en la rama **`main`** junto con todos los tags:
