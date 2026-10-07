@@ -2,6 +2,8 @@ import io
 import os
 import re
 import zipfile
+import base64
+import textwrap
 from typing import List, Optional, Tuple
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query
@@ -131,95 +133,88 @@ def create_label_image(item: str, description: str, size: str = "60x30") -> Opti
     item_text = str(item).upper().strip()
     desc_text = str(description).upper().strip()
 
-    if size == "60x90":
-        # Formato Grande 60x90 mm (900x600 px) - Formato institucional DLS Archer Depósito Neuquén
-        ancho, alto = 900, 600
-        label = Image.new('RGB', (ancho, alto), 'white')
+    if size in ("60x95", "60x90"):
+        # Formato Grande 60x95 mm (600x950 px) - Formato institucional DLS Archer Depósito Neuquén
+        w, h = 600, 950
+        label = Image.new('RGB', (w, h), 'white')
         draw = ImageDraw.Draw(label)
 
-        # 1. Logo DLS Archer (arriba a la derecha)
+        # 1. Logo DLS Archer (arriba centrado)
         logo_path = os.path.join(STATIC_DIR, "img", "logo.png")
         if not os.path.exists(logo_path):
             logo_path = os.path.join(BASE_DIR, "logo.png")
 
-        logo_w, logo_h = 115, 175
-        logo_x = ancho - logo_w - 35
-        logo_y = 25
-
         if os.path.exists(logo_path):
             try:
                 logo = Image.open(logo_path).convert("RGBA")
-                logo_resized = logo.resize((logo_w, logo_h), Image.Resampling.LANCZOS)
-                label.paste(logo_resized, (logo_x, logo_y), logo_resized)
-                pill_right = logo_x - 18
+                lh = 150
+                lw = int(logo.width * (lh / logo.height))
+                logo_resized = logo.resize((lw, lh), Image.Resampling.LANCZOS)
+                label.paste(logo_resized, ((w - lw) // 2, 25), logo_resized)
             except Exception as e:
-                print(f"Error cargando logo en etiqueta 60x90: {e}")
-                pill_right = ancho - 35
-        else:
-            pill_right = ancho - 35
+                print(f"Error cargando logo en etiqueta 60x95: {e}")
 
-        # 2. Píldora superior (DEPOSITO DLS NEUQUEN)
-        pill_left = 35
-        pill_top = 30
-        pill_bottom = 170
-        draw.rounded_rectangle([pill_left, pill_top, pill_right, pill_bottom], radius=26, outline='#042433', width=9)
+        # 2. Píldora / Encabezado DEPOSITO DLS NEUQUEN
+        pill_top, pill_bottom = 185, 245
+        pill_left, pill_right = 30, w - 30
+        draw.rounded_rectangle([pill_left, pill_top, pill_right, pill_bottom], radius=18, outline='#042433', width=5)
 
-        font_header = get_font("arialbd.ttf", 54)
-        header_text = "DEPOSITO DLS NEUQUEN"
-        hb = draw.textbbox((0, 0), header_text, font=font_header)
-        hw = hb[2] - hb[0]
-        hx = pill_left + (pill_right - pill_left - hw) // 2
-        hy = pill_top + (pill_bottom - pill_top - (hb[3] - hb[1])) // 2 - 4
+        font_h = get_font("arialbd.ttf", 28)
+        text_h = "DEPOSITO DLS NEUQUEN"
+        hb = draw.textbbox((0, 0), text_h, font=font_h)
+        hx = (w - (hb[2] - hb[0])) // 2
+        hy = pill_top + (pill_bottom - pill_top - (hb[3] - hb[1])) // 2 - 3
+        draw.text((hx, hy), text_h, font=font_h, fill='#042433')
 
-        # Sombra negra y relieve gris
-        draw.text((hx + 3, hy + 3), header_text, font=font_header, fill='black')
-        draw.text((hx, hy), header_text, font=font_header, fill=(160, 160, 160), stroke_width=2, stroke_fill='black')
+        # 3. Código de Barras Code39
+        bc_img = generate_barcode_image(item_text, target_size=(540, 140))
+        if bc_img:
+            label.paste(bc_img, (30, 265))
 
-        # 3. Franja central negra con Código de Ítem en blanco
-        band_left = 35
-        band_right = ancho - 35
-        band_top = 205
-        band_bottom = 340
-        draw.rectangle([band_left, band_top, band_right, band_bottom], fill='black')
+        # 4. Franja central negra con Código de Ítem en blanco
+        band_top, band_bottom = 425, 545
+        draw.rectangle([pill_left, band_top, pill_right, band_bottom], fill='black')
 
-        font_item = get_font("arialbd.ttf", 86)
+        it_font_size = 72
+        font_item = get_font("arialbd.ttf", it_font_size)
         ib = draw.textbbox((0, 0), item_text, font=font_item)
-        iw = ib[2] - ib[0]
-        ix = band_left + (band_right - band_left - iw) // 2
-        iy = band_top + (band_bottom - band_top - (ib[3] - ib[1])) // 2 - 6
+        while (ib[2] - ib[0]) > (pill_right - pill_left - 30) and it_font_size > 36:
+            it_font_size -= 4
+            font_item = get_font("arialbd.ttf", it_font_size)
+            ib = draw.textbbox((0, 0), item_text, font=font_item)
+
+        ix = (w - (ib[2] - ib[0])) // 2
+        iy = band_top + (band_bottom - band_top - (ib[3] - ib[1])) // 2 - 5
         draw.text((ix, iy), item_text, font=font_item, fill='white')
 
-        # 4. Cuadro inferior con Descripción
-        desc_top = 365
-        desc_bottom = 560
-        draw.rectangle([band_left, desc_top, band_right, desc_bottom], outline='black', width=3, fill='white')
+        # 5. Cuadro inferior con Descripción Enmarcado
+        desc_top, desc_bottom = 570, 920
+        draw.rectangle([pill_left, desc_top, pill_right, desc_bottom], outline='black', width=4, fill='white')
 
-        box_w = band_right - band_left - 40
+        box_w = pill_right - pill_left - 40
         box_h = desc_bottom - desc_top
 
-        # Ajuste dinámico de tipografía de descripción
-        font_size = 54
+        font_size = 48
         font_desc = get_font("arialbd.ttf", font_size)
         lines = [desc_text]
 
         if draw.textbbox((0, 0), desc_text, font=font_desc)[2] > box_w:
-            import textwrap
-            font_size = 42
+            font_size = 38
             font_desc = get_font("arialbd.ttf", font_size)
-            lines = textwrap.wrap(desc_text, width=32)
-            if len(lines) > 2:
-                font_size = 34
+            lines = textwrap.wrap(desc_text, width=25)
+            if len(lines) > 3:
+                font_size = 30
                 font_desc = get_font("arialbd.ttf", font_size)
-                lines = textwrap.wrap(desc_text, width=40)[:3]
+                lines = textwrap.wrap(desc_text, width=32)[:5]
 
-        line_h = font_size + 12
+        line_h = font_size + 14
         total_text_h = len(lines) * line_h
         start_y = desc_top + (box_h - total_text_h) // 2
 
         for i, line in enumerate(lines):
             bb = draw.textbbox((0, 0), line, font=font_desc)
             lw_text = bb[2] - bb[0]
-            lx = band_left + (band_right - band_left - lw_text) // 2
+            lx = pill_left + (pill_right - pill_left - lw_text) // 2
             draw.text((lx, start_y + i * line_h), line, font=font_desc, fill='black')
 
         return label
@@ -497,15 +492,15 @@ async def upload_excel(file: UploadFile = File(...)):
 
 @app.post("/api/generate-pdf")
 def generate_pdf(req: GeneratePdfRequest):
-    """Genera el documento PDF de etiquetas en memoria adaptado a 60x30 mm o 60x90 mm."""
+    """Genera el documento PDF de etiquetas en memoria adaptado a 60x30 mm o 60x95 mm."""
     if not req.items:
         raise HTTPException(status_code=400, detail="La lista de ítems está vacía")
 
-    # Determinar tamaño efectivo y orientación
-    label_size = req.size or ("60x90" if (req.height_mm or 30.0) >= 50.0 else "60x30")
-    if label_size == "60x90":
-        w_mm, h_mm = 90.0, 60.0
-        pdf = FPDF("L", "mm", (60.0, 90.0))
+    # Determinar tamaño efectivo y orientación (ambos formatos en orientación Portrait para rollo térmico de 60 mm)
+    label_size = req.size or ("60x95" if (req.height_mm or 30.0) >= 50.0 else "60x30")
+    if label_size in ("60x95", "60x90"):
+        w_mm, h_mm = 60.0, 95.0
+        pdf = FPDF("P", "mm", (60.0, 95.0))
     else:
         w_mm, h_mm = 60.0, 30.0
         pdf = FPDF("P", "mm", (60.0, 30.0))
@@ -547,13 +542,166 @@ def generate_pdf(req: GeneratePdfRequest):
     )
 
 
+@app.post("/api/print-html")
+def generate_print_html(req: GeneratePdfRequest):
+    """Genera un documento HTML optimizado para impresión térmica directa en navegador sin pasar por plugin de PDF."""
+    if not req.items:
+        raise HTTPException(status_code=400, detail="La lista de ítems está vacía")
+
+    label_size = req.size or ("60x95" if (req.height_mm or 30.0) >= 50.0 else "60x30")
+    if label_size in ("60x95", "60x90"):
+        w_mm = 60
+        h_mm = 95
+    else:
+        w_mm = 60
+        h_mm = 30
+
+    cache_images = {}
+    html_pages = []
+
+    for it in req.items:
+        if it.qty <= 0 or not it.item.strip():
+            continue
+        cache_key = f"{it.item}_{it.description}_{label_size}"
+        if cache_key not in cache_images:
+            img = create_label_image(it.item, it.description, size=label_size)
+            if not img:
+                continue
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=95)
+            b64_str = base64.b64encode(buf.getvalue()).decode("utf-8")
+            cache_images[cache_key] = f"data:image/jpeg;base64,{b64_str}"
+
+        img_src = cache_images[cache_key]
+        for _ in range(it.qty):
+            html_pages.append(f'<div class="label-page"><img src="{img_src}" alt="{it.item}"></div>')
+
+    if not html_pages:
+        raise HTTPException(status_code=400, detail="No se generaron etiquetas válidas con cantidad mayor a 0.")
+
+    pages_joined = "".join(html_pages)
+    html_content = f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Impresión Térmica - {len(html_pages)} Etiquetas ({w_mm:.0f}x{h_mm:.0f} mm)</title>
+  <style>
+    @page {{
+      size: {w_mm}mm {h_mm}mm;
+      margin: 0mm;
+    }}
+    *, *::before, *::after {{
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }}
+    html, body {{
+      margin: 0 !important;
+      padding: 0 !important;
+      background: #ffffff !important;
+      width: {w_mm}mm !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      font-family: sans-serif;
+    }}
+    .label-page {{
+      width: {w_mm}mm !important;
+      height: {h_mm}mm !important;
+      max-width: {w_mm}mm !important;
+      max-height: {h_mm}mm !important;
+      page-break-after: always !important;
+      page-break-inside: avoid !important;
+      break-after: page !important;
+      break-inside: avoid !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      overflow: hidden !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }}
+    .label-page:last-child {{
+      page-break-after: avoid !important;
+      break-after: avoid !important;
+    }}
+    .label-page img {{
+      width: {w_mm}mm !important;
+      height: {h_mm}mm !important;
+      display: block !important;
+      object-fit: contain !important;
+    }}
+    @media screen {{
+      body {{
+        background: #e2e8f0 !important;
+        padding: 20px 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 16px !important;
+        min-height: 100vh !important;
+        width: 100% !important;
+      }}
+      .no-print-bar {{
+        position: sticky;
+        top: 0;
+        z-index: 999;
+        background: #1e293b;
+        color: #ffffff;
+        padding: 10px 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 10px;
+      }}
+      .no-print-bar button {{
+        background: #10b981;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-weight: bold;
+        cursor: pointer;
+        font-size: 14px;
+      }}
+      .no-print-bar button:hover {{
+        background: #059669;
+      }}
+      .label-page {{
+        background: white;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        border-radius: 4px;
+      }}
+    }}
+    @media print {{
+      .no-print-bar {{
+        display: none !important;
+      }}
+    }}
+  </style>
+</head>
+<body>
+  <div class="no-print-bar">
+    <span>Listo para imprimir <strong>{len(html_pages)} etiqueta(s)</strong> ({w_mm:.0f}x{h_mm:.0f} mm)</span>
+    <button onclick="window.print()">🖨️ Imprimir Ahora</button>
+    <button onclick="window.close()" style="background:#64748b;">Cerrar</button>
+  </div>
+  {pages_joined}
+</body>
+</html>"""
+
+    return Response(content=html_content, media_type="text/html; charset=utf-8")
+
+
 @app.post("/api/download-zip")
 def download_zip(req: GeneratePdfRequest):
     """Descarga todas las imágenes JPEG únicas de las etiquetas en un archivo .zip."""
     if not req.items:
         raise HTTPException(status_code=400, detail="No hay ítems para comprimir")
 
-    label_size = req.size or ("60x90" if (req.height_mm or 30.0) >= 80.0 else "60x30")
+    label_size = req.size or ("60x95" if (req.height_mm or 30.0) >= 50.0 else "60x30")
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
         for it in req.items:

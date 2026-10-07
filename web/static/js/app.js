@@ -115,66 +115,75 @@ function setupTabs() {
   });
 }
 
-// 1.1 Selector de Tamaño de Etiquetas (60x30 mm vs 60x90 mm)
+// 1.1 Selector de Tamaño de Etiquetas (60x30 mm vs 60x95 mm)
 function setupSizeSelector() {
   const btn30 = document.getElementById("btn-size-60x30");
-  const btn90 = document.getElementById("btn-size-60x90");
+  const btn95 = document.getElementById("btn-size-60x95") || document.getElementById("btn-size-60x90");
 
-  if (!btn30 || !btn90) return;
+  if (!btn30 || !btn95) return;
 
   btn30.addEventListener("click", () => setLabelSize("60x30"));
-  btn90.addEventListener("click", () => setLabelSize("60x90"));
+  btn95.addEventListener("click", () => setLabelSize("60x95"));
 }
 
 function setLabelSize(size) {
   selectedLabelSize = size;
   const btn30 = document.getElementById("btn-size-60x30");
-  const btn90 = document.getElementById("btn-size-60x90");
+  const btn95 = document.getElementById("btn-size-60x95") || document.getElementById("btn-size-60x90");
   const badge = document.getElementById("badge-preview-size");
   const container = document.getElementById("preview-container");
   const pdfBtnLabel = document.getElementById("lbl-btn-pdf");
 
-  if (size === "60x90") {
-    // 60x90 activo
-    btn30.classList.remove("active", "border-indigo-600", "bg-indigo-50/70", "text-indigo-900");
-    btn30.classList.add("border-slate-200", "bg-slate-50", "text-slate-700");
-    const check30 = btn30.querySelector(".size-check-box");
-    if (check30) {
-      check30.className = "size-check-box w-4 h-4 rounded-full border border-slate-300 bg-white text-transparent flex items-center justify-center shrink-0";
+  if (size === "60x95" || size === "60x90") {
+    // 60x95 activo
+    if (btn30) {
+      btn30.classList.remove("active", "border-indigo-600", "bg-indigo-50/70", "text-indigo-900");
+      btn30.classList.add("border-slate-200", "bg-slate-50", "text-slate-700");
+      const check30 = btn30.querySelector(".size-check-box");
+      if (check30) {
+        check30.className = "size-check-box w-4 h-4 rounded-full border border-slate-300 bg-white text-transparent flex items-center justify-center shrink-0";
+      }
     }
 
-    btn90.classList.add("active", "border-indigo-600", "bg-indigo-50/70", "text-indigo-900");
-    btn90.classList.remove("border-slate-200", "bg-slate-50", "text-slate-700");
-    const check90 = btn90.querySelector(".size-check-box");
-    if (check90) {
-      check90.className = "size-check-box w-4 h-4 rounded-full border border-indigo-600 bg-indigo-600 text-white flex items-center justify-center shrink-0";
+    if (btn95) {
+      btn95.classList.add("active", "border-indigo-600", "bg-indigo-50/70", "text-indigo-900");
+      btn95.classList.remove("border-slate-200", "bg-slate-50", "text-slate-700");
+      const check95 = btn95.querySelector(".size-check-box");
+      if (check95) {
+        check95.className = "size-check-box w-4 h-4 rounded-full border border-indigo-600 bg-indigo-600 text-white flex items-center justify-center shrink-0";
+      }
     }
 
     if (badge) {
-      badge.textContent = "60 x 90 mm";
+      badge.textContent = "60 x 95 mm";
       badge.className = "text-[11px] font-mono bg-purple-50 text-purple-700 font-bold px-2 py-0.5 rounded border border-purple-200";
     }
 
     if (container) {
       container.classList.remove("preview-box-60x30");
-      container.classList.add("preview-box-60x90");
+      container.classList.remove("preview-box-60x90");
+      container.classList.add("preview-box-60x95");
     }
 
-    if (pdfBtnLabel) pdfBtnLabel.textContent = "Descargar PDF (60x90 mm)";
+    if (pdfBtnLabel) pdfBtnLabel.textContent = "Descargar PDF (60x95 mm)";
   } else {
     // 60x30 activo
-    btn90.classList.remove("active", "border-indigo-600", "bg-indigo-50/70", "text-indigo-900");
-    btn90.classList.add("border-slate-200", "bg-slate-50", "text-slate-700");
-    const check90 = btn90.querySelector(".size-check-box");
-    if (check90) {
-      check90.className = "size-check-box w-4 h-4 rounded-full border border-slate-300 bg-white text-transparent flex items-center justify-center shrink-0";
+    if (btn95) {
+      btn95.classList.remove("active", "border-indigo-600", "bg-indigo-50/70", "text-indigo-900");
+      btn95.classList.add("border-slate-200", "bg-slate-50", "text-slate-700");
+      const check95 = btn95.querySelector(".size-check-box");
+      if (check95) {
+        check95.className = "size-check-box w-4 h-4 rounded-full border border-slate-300 bg-white text-transparent flex items-center justify-center shrink-0";
+      }
     }
 
-    btn30.classList.add("active", "border-indigo-600", "bg-indigo-50/70", "text-indigo-900");
-    btn30.classList.remove("border-slate-200", "bg-slate-50", "text-slate-700");
-    const check30 = btn30.querySelector(".size-check-box");
-    if (check30) {
-      check30.className = "size-check-box w-4 h-4 rounded-full border border-indigo-600 bg-indigo-600 text-white flex items-center justify-center shrink-0";
+    if (btn30) {
+      btn30.classList.add("active", "border-indigo-600", "bg-indigo-50/70", "text-indigo-900");
+      btn30.classList.remove("border-slate-200", "bg-slate-50", "text-slate-700");
+      const check30 = btn30.querySelector(".size-check-box");
+      if (check30) {
+        check30.className = "size-check-box w-4 h-4 rounded-full border border-indigo-600 bg-indigo-600 text-white flex items-center justify-center shrink-0";
+      }
     }
 
     if (badge) {
@@ -183,6 +192,7 @@ function setLabelSize(size) {
     }
 
     if (container) {
+      container.classList.remove("preview-box-60x95");
       container.classList.remove("preview-box-60x90");
       container.classList.add("preview-box-60x30");
     }
@@ -726,7 +736,7 @@ function setupExportEvents() {
       filename: loadedFileName || "etiquetas",
       size: selectedLabelSize,
       width_mm: 60.0,
-      height_mm: selectedLabelSize === "60x90" ? 90.0 : 30.0
+      height_mm: (selectedLabelSize === "60x95" || selectedLabelSize === "60x90") ? 95.0 : 30.0
     };
   }
 
@@ -734,27 +744,57 @@ function setupExportEvents() {
     const payload = getExportPayload();
     if (!payload) return;
 
-    showToast("Generando documento para imprimir...", "info");
+    showToast("Preparando etiquetas para impresión térmica...", "info");
     btnPrintDirect.disabled = true;
 
     try {
-      const res = await fetch("/api/generate-pdf", {
+      const res = await fetch("/api/print-html", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
 
-      if (!res.ok) throw new Error("Error al generar PDF");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || "Error al preparar documento de impresión térmica");
+      }
 
-      const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
+      const htmlContent = await res.text();
 
-      iframe.src = blobUrl;
-      iframe.onload = () => {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-        btnPrintDirect.disabled = false;
-        showToast("Listo para imprimir", "success");
+      // Utilizar iframe invisible para abrir el diálogo nativo del navegador con la dimensión de página térmica exacta
+      let printFrame = document.getElementById("print-direct-frame");
+      if (!printFrame) {
+        printFrame = document.createElement("iframe");
+        printFrame.id = "print-direct-frame";
+        printFrame.style.position = "fixed";
+        printFrame.style.right = "-9999px";
+        printFrame.style.bottom = "-9999px";
+        printFrame.style.width = "0px";
+        printFrame.style.height = "0px";
+        printFrame.style.border = "none";
+        document.body.appendChild(printFrame);
+      }
+
+      printFrame.srcdoc = htmlContent;
+
+      printFrame.onload = () => {
+        setTimeout(() => {
+          try {
+            printFrame.contentWindow.focus();
+            printFrame.contentWindow.print();
+            showToast("Diálogo de impresión térmica enviado al navegador", "success");
+          } catch (e) {
+            console.warn("Fallo impresión por iframe, abriendo ventana emergente:", e);
+            const w = window.open("", "_blank");
+            if (w) {
+              w.document.open();
+              w.document.write(htmlContent);
+              w.document.close();
+            }
+          } finally {
+            btnPrintDirect.disabled = false;
+          }
+        }, 300);
       };
     } catch (err) {
       showToast(err.message, "error");
@@ -782,7 +822,7 @@ function setupExportEvents() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${payload.filename || "etiquetas"}.pdf`;
+      a.download = `${payload.filename || "etiquetas"}_${payload.size}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
