@@ -292,9 +292,14 @@
           </h2>
 
           <div class="space-y-2 pt-1">
-            <button id="btn-print-direct" class="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold py-3 px-4 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-all">
+            <button id="btn-print-direct" class="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold py-3 px-4 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer">
               <i data-lucide="printer" class="w-5 h-5"></i>
               <span>Imprimir Directo (Navegador)</span>
+            </button>
+
+            <button id="btn-print-popup" class="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold py-2 px-4 rounded-lg border border-emerald-200 flex items-center justify-center gap-2 transition-colors text-xs cursor-pointer" title="Abre una pestaña con la vista de impresión térmica lista para Ctrl+P">
+              <i data-lucide="external-link" class="w-4 h-4"></i>
+              <span>Abrir Pestaña de Impresión</span>
             </button>
 
             <button id="btn-download-pdf" class="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold py-2.5 px-4 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-all">

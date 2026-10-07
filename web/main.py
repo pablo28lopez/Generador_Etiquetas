@@ -134,78 +134,84 @@ def create_label_image(item: str, description: str, size: str = "60x30") -> Opti
     desc_text = str(description).upper().strip()
 
     if size in ("60x95", "60x90"):
-        # Formato Grande 60x95 mm (600x950 px) - Formato institucional DLS Archer Depósito Neuquén
-        w, h = 600, 950
+        # Formato Grande Horizontal 95x60 mm (950x600 px) - Formato institucional DLS Archer Depósito Neuquén
+        w, h = 950, 600
         label = Image.new('RGB', (w, h), 'white')
         draw = ImageDraw.Draw(label)
+        margin_x = 35
 
-        # 1. Logo DLS Archer (arriba centrado)
+        # 1. Logo DLS Archer (arriba a la izquierda) y al lado DLS DEPOSITO NEUQUEN
         logo_path = os.path.join(STATIC_DIR, "img", "logo.png")
         if not os.path.exists(logo_path):
             logo_path = os.path.join(BASE_DIR, "logo.png")
 
+        lh = 135
         if os.path.exists(logo_path):
             try:
                 logo = Image.open(logo_path).convert("RGBA")
-                lh = 150
                 lw = int(logo.width * (lh / logo.height))
                 logo_resized = logo.resize((lw, lh), Image.Resampling.LANCZOS)
-                label.paste(logo_resized, ((w - lw) // 2, 25), logo_resized)
+                label.paste(logo_resized, (margin_x, 20), logo_resized)
+                pill_left = margin_x + lw + 20
             except Exception as e:
                 print(f"Error cargando logo en etiqueta 60x95: {e}")
+                pill_left = margin_x
+        else:
+            pill_left = margin_x
 
-        # 2. Píldora / Encabezado DEPOSITO DLS NEUQUEN
-        pill_top, pill_bottom = 185, 245
-        pill_left, pill_right = 30, w - 30
-        draw.rounded_rectangle([pill_left, pill_top, pill_right, pill_bottom], radius=18, outline='#042433', width=5)
+        pill_right = w - margin_x
+        pill_top = 20
+        pill_bottom = 20 + lh
+        draw.rounded_rectangle([pill_left, pill_top, pill_right, pill_bottom], radius=22, outline='#042433', width=7)
 
-        font_h = get_font("arialbd.ttf", 28)
-        text_h = "DEPOSITO DLS NEUQUEN"
-        hb = draw.textbbox((0, 0), text_h, font=font_h)
-        hx = (w - (hb[2] - hb[0])) // 2
-        hy = pill_top + (pill_bottom - pill_top - (hb[3] - hb[1])) // 2 - 3
-        draw.text((hx, hy), text_h, font=font_h, fill='#042433')
+        font_header = get_font("arialbd.ttf", 44)
+        header_text = "DLS DEPOSITO NEUQUEN"
+        hb = draw.textbbox((0, 0), header_text, font=font_header)
+        hw = hb[2] - hb[0]
+        hx = pill_left + (pill_right - pill_left - hw) // 2
+        hy = pill_top + (pill_bottom - pill_top - (hb[3] - hb[1])) // 2 - 4
 
-        # 3. Código de Barras Code39
-        bc_img = generate_barcode_image(item_text, target_size=(540, 140))
-        if bc_img:
-            label.paste(bc_img, (30, 265))
+        # Texto con relieve institucional
+        draw.text((hx + 2, hy + 2), header_text, font=font_header, fill='black')
+        draw.text((hx, hy), header_text, font=font_header, fill=(160, 160, 160), stroke_width=2, stroke_fill='black')
 
-        # 4. Franja central negra con Código de Ítem en blanco
-        band_top, band_bottom = 425, 545
-        draw.rectangle([pill_left, band_top, pill_right, band_bottom], fill='black')
+        # 2. Franja central negra con Código de Ítem en blanco
+        band_top = 175
+        band_bottom = 315
+        draw.rectangle([margin_x, band_top, w - margin_x, band_bottom], fill='black')
 
-        it_font_size = 72
-        font_item = get_font("arialbd.ttf", it_font_size)
+        it_size = 88
+        font_item = get_font("arialbd.ttf", it_size)
         ib = draw.textbbox((0, 0), item_text, font=font_item)
-        while (ib[2] - ib[0]) > (pill_right - pill_left - 30) and it_font_size > 36:
-            it_font_size -= 4
-            font_item = get_font("arialbd.ttf", it_font_size)
+        while (ib[2] - ib[0]) > (w - 2 * margin_x - 40) and it_size > 36:
+            it_size -= 4
+            font_item = get_font("arialbd.ttf", it_size)
             ib = draw.textbbox((0, 0), item_text, font=font_item)
 
         ix = (w - (ib[2] - ib[0])) // 2
-        iy = band_top + (band_bottom - band_top - (ib[3] - ib[1])) // 2 - 5
+        iy = band_top + (band_bottom - band_top - (ib[3] - ib[1])) // 2 - 6
         draw.text((ix, iy), item_text, font=font_item, fill='white')
 
-        # 5. Cuadro inferior con Descripción Enmarcado
-        desc_top, desc_bottom = 570, 920
-        draw.rectangle([pill_left, desc_top, pill_right, desc_bottom], outline='black', width=4, fill='white')
+        # 3. Cuadro inferior con Descripción Enmarcado
+        desc_top = 335
+        desc_bottom = 575
+        draw.rectangle([margin_x, desc_top, w - margin_x, desc_bottom], outline='black', width=4, fill='white')
 
-        box_w = pill_right - pill_left - 40
+        box_w = w - 2 * margin_x - 40
         box_h = desc_bottom - desc_top
 
-        font_size = 48
+        font_size = 52
         font_desc = get_font("arialbd.ttf", font_size)
         lines = [desc_text]
 
         if draw.textbbox((0, 0), desc_text, font=font_desc)[2] > box_w:
-            font_size = 38
+            font_size = 42
             font_desc = get_font("arialbd.ttf", font_size)
-            lines = textwrap.wrap(desc_text, width=25)
-            if len(lines) > 3:
-                font_size = 30
+            lines = textwrap.wrap(desc_text, width=32)
+            if len(lines) > 2:
+                font_size = 34
                 font_desc = get_font("arialbd.ttf", font_size)
-                lines = textwrap.wrap(desc_text, width=32)[:5]
+                lines = textwrap.wrap(desc_text, width=40)[:3]
 
         line_h = font_size + 14
         total_text_h = len(lines) * line_h
@@ -214,7 +220,7 @@ def create_label_image(item: str, description: str, size: str = "60x30") -> Opti
         for i, line in enumerate(lines):
             bb = draw.textbbox((0, 0), line, font=font_desc)
             lw_text = bb[2] - bb[0]
-            lx = pill_left + (pill_right - pill_left - lw_text) // 2
+            lx = margin_x + (w - 2 * margin_x - lw_text) // 2
             draw.text((lx, start_y + i * line_h), line, font=font_desc, fill='black')
 
         return label
@@ -492,15 +498,15 @@ async def upload_excel(file: UploadFile = File(...)):
 
 @app.post("/api/generate-pdf")
 def generate_pdf(req: GeneratePdfRequest):
-    """Genera el documento PDF de etiquetas en memoria adaptado a 60x30 mm o 60x95 mm."""
+    """Genera el documento PDF de etiquetas en memoria adaptado a 60x30 mm o 95x60 mm (horizontal)."""
     if not req.items:
         raise HTTPException(status_code=400, detail="La lista de ítems está vacía")
 
-    # Determinar tamaño efectivo y orientación (ambos formatos en orientación Portrait para rollo térmico de 60 mm)
+    # Determinar tamaño efectivo y orientación (60x95 es Horizontal: 95 mm ancho x 60 mm alto)
     label_size = req.size or ("60x95" if (req.height_mm or 30.0) >= 50.0 else "60x30")
     if label_size in ("60x95", "60x90"):
-        w_mm, h_mm = 60.0, 95.0
-        pdf = FPDF("P", "mm", (60.0, 95.0))
+        w_mm, h_mm = 95.0, 60.0
+        pdf = FPDF("L", "mm", (60.0, 95.0))
     else:
         w_mm, h_mm = 60.0, 30.0
         pdf = FPDF("P", "mm", (60.0, 30.0))
@@ -550,8 +556,8 @@ def generate_print_html(req: GeneratePdfRequest):
 
     label_size = req.size or ("60x95" if (req.height_mm or 30.0) >= 50.0 else "60x30")
     if label_size in ("60x95", "60x90"):
-        w_mm = 60
-        h_mm = 95
+        w_mm = 95
+        h_mm = 60
     else:
         w_mm = 60
         h_mm = 30
@@ -586,6 +592,18 @@ def generate_print_html(req: GeneratePdfRequest):
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Impresión Térmica - {len(html_pages)} Etiquetas ({w_mm:.0f}x{h_mm:.0f} mm)</title>
+  <script>
+    window.addEventListener('load', function() {{
+      setTimeout(function() {{
+        try {{
+          window.focus();
+          window.print();
+        }} catch (e) {{
+          console.warn('Auto print:', e);
+        }}
+      }}, 300);
+    }});
+  </script>
   <style>
     @page {{
       size: {w_mm}mm {h_mm}mm;

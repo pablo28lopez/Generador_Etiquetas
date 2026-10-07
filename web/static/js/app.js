@@ -717,9 +717,9 @@ function updatePreview(item, description) {
 // 8. Generación de PDF, Impresión y Descarga ZIP
 function setupExportEvents() {
   const btnPrintDirect = document.getElementById("btn-print-direct");
+  const btnPrintPopup = document.getElementById("btn-print-popup");
   const btnDownloadPdf = document.getElementById("btn-download-pdf");
   const btnDownloadZip = document.getElementById("btn-download-zip");
-  const iframe = document.getElementById("print-iframe");
 
   function getExportPayload() {
     const selected = itemsState.filter(i => i.selected && i.qty > 0);
@@ -735,17 +735,35 @@ function setupExportEvents() {
       })),
       filename: loadedFileName || "etiquetas",
       size: selectedLabelSize,
-      width_mm: 60.0,
-      height_mm: (selectedLabelSize === "60x95" || selectedLabelSize === "60x90") ? 95.0 : 30.0
+      width_mm: (selectedLabelSize === "60x95" || selectedLabelSize === "60x90") ? 95.0 : 60.0,
+      height_mm: (selectedLabelSize === "60x95" || selectedLabelSize === "60x90") ? 60.0 : 30.0
     };
   }
 
-  btnPrintDirect.addEventListener("click", async () => {
+  async function triggerBrowserPrint(openInNewTab = false) {
     const payload = getExportPayload();
     if (!payload) return;
 
-    showToast("Preparando etiquetas para impresión térmica...", "info");
+    showToast("Preparando etiquetas térmicas...", "info");
     btnPrintDirect.disabled = true;
+    if (btnPrintPopup) btnPrintPopup.disabled = true;
+
+    // Si el usuario eligió abrir en pestaña, abrir inmediatamente para no perder el contexto de gesto del usuario
+    let printTab = null;
+    if (openInNewTab) {
+      printTab = window.open("", "_blank");
+      if (printTab) {
+        printTab.document.write(`
+          <!DOCTYPE html><html><head><title>Impresión Térmica...</title></head>
+          <body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#f8fafc;color:#334155;">
+            <div style="text-align:center;">
+              <p style="font-weight:bold;font-size:16px;">Generando etiquetas térmicas...</p>
+              <p style="font-size:12px;color:#64748b;margin-top:6px;">El diálogo de impresión se abrirá automáticamente.</p>
+            </div>
+          </body></html>
+        `);
+      }
+    }
 
     try {
       const res = await fetch("/api/print-html", {
@@ -761,46 +779,63 @@ function setupExportEvents() {
 
       const htmlContent = await res.text();
 
-      // Utilizar iframe invisible para abrir el diálogo nativo del navegador con la dimensión de página térmica exacta
-      let printFrame = document.getElementById("print-direct-frame");
-      if (!printFrame) {
+      if (openInNewTab && printTab) {
+        printTab.document.open();
+        printTab.document.write(htmlContent);
+        printTab.document.close();
+        showToast("Pestaña de impresión abierta con éxito", "success");
+      } else {
+        // Modo directo en la misma pestaña mediante iframe visible para el motor Chromium (opacity 0.001)
+        let printFrame = document.getElementById("print-direct-frame");
+        if (printFrame) printFrame.remove();
+
         printFrame = document.createElement("iframe");
         printFrame.id = "print-direct-frame";
         printFrame.style.position = "fixed";
-        printFrame.style.right = "-9999px";
-        printFrame.style.bottom = "-9999px";
-        printFrame.style.width = "0px";
-        printFrame.style.height = "0px";
+        printFrame.style.left = "0";
+        printFrame.style.top = "0";
+        printFrame.style.width = "100vw";
+        printFrame.style.height = "100vh";
+        printFrame.style.opacity = "0.001";
+        printFrame.style.pointerEvents = "none";
+        printFrame.style.zIndex = "-9999";
         printFrame.style.border = "none";
         document.body.appendChild(printFrame);
-      }
 
-      printFrame.srcdoc = htmlContent;
+        const frameDoc = printFrame.contentWindow.document;
+        frameDoc.open();
+        frameDoc.write(htmlContent);
+        frameDoc.close();
 
-      printFrame.onload = () => {
         setTimeout(() => {
           try {
             printFrame.contentWindow.focus();
             printFrame.contentWindow.print();
             showToast("Diálogo de impresión térmica enviado al navegador", "success");
           } catch (e) {
-            console.warn("Fallo impresión por iframe, abriendo ventana emergente:", e);
+            console.warn("Fallo impresión por iframe, abriendo en ventana emergente:", e);
             const w = window.open("", "_blank");
             if (w) {
               w.document.open();
               w.document.write(htmlContent);
               w.document.close();
             }
-          } finally {
-            btnPrintDirect.disabled = false;
           }
-        }, 300);
-      };
+        }, 400);
+      }
     } catch (err) {
+      if (printTab) printTab.close();
       showToast(err.message, "error");
+    } finally {
       btnPrintDirect.disabled = false;
+      if (btnPrintPopup) btnPrintPopup.disabled = false;
     }
-  });
+  }
+
+  btnPrintDirect.addEventListener("click", () => triggerBrowserPrint(false));
+  if (btnPrintPopup) {
+    btnPrintPopup.addEventListener("click", () => triggerBrowserPrint(true));
+  }
 
   btnDownloadPdf.addEventListener("click", async () => {
     const payload = getExportPayload();

@@ -78,19 +78,18 @@ Acceso desde cualquier navegador en: `http://localhost:8000` (o la IP de tu serv
 ### Instalación como PWA:
 - Abre la web en Chrome, Edge o móvil y haz clic en **"Instalar App"** en la barra superior para agregarla como aplicación de escritorio o acceso móvil.
 
-### 📏 Soporte de Tamaños de Etiquetas (60x30 mm y 60x95 mm):
-- **Botones Selector Tipo Check:** Permite alternar en tiempo real entre el tamaño estándar (**60 x 30 mm**, 600x300 px) y el tamaño vertical grande (**60 x 95 mm**, 600x950 px, etiqueta institucional de depósito).
-- **Diseño Oficial para 60 x 95 mm (Grande):**
-  - **Logotipo institucional:** Logotipo oficial de alta resolución de **DLS Archer** centrado en la parte superior.
-  - **Encabezado institucional:** Píldora redondeada con contorno marino `#042433` y texto en negrita `DEPOSITO DLS NEUQUEN`.
-  - **Código de barras Code39:** Centrado, de alta legibilidad óptica para lectores láser e inalámbricos.
-  - **Banda negra sólida de alto contraste:** Con el código de ítem en tipografía blanca gigante en negrita (con autoescalado dinámico según longitud), visible a gran distancia.
+### 📏 Soporte de Tamaños de Etiquetas (60x30 mm y 60x95 mm Horizontal):
+- **Botones Selector Tipo Check:** Permite alternar en tiempo real entre el tamaño estándar (**60 x 30 mm**, 600x300 px) y el tamaño horizontal grande (**60 x 95 mm**, 950x600 px, etiqueta institucional de depósito).
+- **Diseño Oficial para 60 x 95 mm (Grande / Horizontal):**
+  - **Encabezado institucional:** Logotipo oficial de alta resolución de **DLS Archer** a la izquierda y, justo al lado, la píldora redondeada con contorno marino `#042433` y texto en relieve `DLS DEPOSITO NEUQUEN`.
+  - **Banda negra sólida de alto contraste:** Con el código de ítem en tipografía blanca gigante en negrita (con autoescalado dinámico según longitud), visible a gran distancia en bodega.
   - **Cuadro inferior enmarcado:** Recuadro blanco con borde negro para la descripción del artículo, con tipografía negrita adaptativa y ajuste multilínea automático.
 - **Impresión Directa desde el Navegador (100% Nativa sin Modificar Propiedades):**
-  - Utiliza un motor de impresión HTML con directivas `@page { size: 60mm 95mm; margin: 0; }` (o `60mm 30mm`) e imágenes Base64 de alta resolución incrustadas.
-  - Al hacer clic en **"Imprimir Directo (Navegador)"**, el navegador abre el diálogo nativo configurando de forma automática el tamaño de etiqueta térmica con margen cero, sin pasar por plugins de PDF que forzaban tamaños A4/Carta o requerían ajustes manuales en el driver.
-- **Exportación en PDF y ZIP Nativa en Modo Vertical (Portrait):**
-  - Tanto las etiquetas de 60x30 mm como las de 60x95 mm se generan en PDF con orientación Portrait y ancho fijo de 60.0 mm, coincidiendo exactamente con el ancho físico del rollo térmico.
+  - Utiliza un motor de impresión HTML con directivas `@page { size: 95mm 60mm; margin: 0; }` (o `60mm 30mm`) e imágenes Base64 incrustadas.
+  - **Botón "Imprimir Directo (Navegador)":** Desencadena de inmediato el cuadro de impresión nativo del navegador con tamaño térmico exacto y margen cero, utilizando un marco de renderizado compatible con el motor de seguridad de Chromium/Edge.
+  - **Botón "Abrir Pestaña de Impresión (Ctrl+P)":** Opción adicional de un clic que abre una pestaña limpia e independiente con las etiquetas a escala 1:1 y el cuadro de diálogo de impresión listo para enviar al driver.
+- **Exportación en PDF Nativamente Horizontal (Landscape):**
+  - El PDF se genera con orientación horizontal `FPDF("L", "mm", (60.0, 95.0))` (95.0 mm de ancho x 60.0 mm de alto), adaptándose al rollo térmico sin requerir rotaciones ni ajustes manuales de propiedades de impresión.
 
 ### 📚 Base de Datos Integrada (DATOS_DEPO.xlsx):
 - **Catálogo de ~36.800 ítems:** Búsqueda ultrarrápida en memoria RAM por código o descripción.
@@ -112,7 +111,8 @@ Este proyecto utiliza ramas estándar y **tags anotados** para registrar el hist
 - **`v1.3.1`**: Lanzadores de 1 clic silenciosos (`iniciar_app.bat`, `iniciar_app.vbs`), apertura en modo ventana app (`--app`) y accesos directos oficiales en el Escritorio de Windows con icono institucional.
 - **`v1.4.0`**: Selector de 2 tamaños de etiqueta tipo check (**60 x 30 mm** y **60 x 90 mm**), rediseño de vista previa en vivo proporcional, formato multilínea optimizado para 60x90, y exportación PDF/ZIP adaptada a ambas medidas térmicas.
 - **`v1.5.0`**: Formato institucional oficial de etiqueta con cabecera `DEPOSITO DLS NEUQUEN`, logo DLS Archer, banda negra con código de ítem en blanco y cuadro inferior para descripción; simplificación del botón a 'Grande'.
-- **`v1.6.0`**: Tamaño oficial vertical **60 x 95 mm** (600x950 px) con nuevo logotipo transparente de alta resolución DLS Archer, cabecera redondeada `DEPOSITO DLS NEUQUEN`, código de barras Code39, banda negra con número de ítem y cuadro de descripción; solución definitiva para **impresión directa desde la web** vía motor HTML con `@page` a medida (sin depender del visor PDF del navegador ni alterar propiedades de impresora); PDF generado en orientación Portrait exacta (60.0 x 95.0 mm).
+- **`v1.6.0`**: Medida 60x95 mm, nuevo logotipo institucional y motor de impresión HTML inicial.
+- **`v1.7.0`**: Rediseño definitivo en formato **Horizontal 95 x 60 mm** (950x600 px); logotipo a la izquierda y píldora `DLS DEPOSITO NEUQUEN` al lado; código de ítem central sobre franja negra sólida; cuadro de descripción inferior enmarcado; doble solución de impresión directa web (botón directo en página y botón de apertura en pestaña dedicada Ctrl+P sin bloqueos de navegador); PDF configurado nativamente en Landscape (95.0 x 60.0 mm).
 
 ### Publicar en tu repositorio de GitHub:
 Para subir este proyecto a tu cuenta de GitHub en la rama **`main`** junto con todos los tags:
