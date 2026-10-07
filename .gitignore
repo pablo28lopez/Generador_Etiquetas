@@ -1,0 +1,19 @@
+# Python & Entornos Virtuales
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# PyInstaller & Temporales de compilación
+build/
+*.spec
+temp/
+*.log
+
+# Sistema Operativo & IDEs
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
