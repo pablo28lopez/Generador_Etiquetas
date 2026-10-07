@@ -1,0 +1,45 @@
+/* Custom Styles para Generador de Etiquetas SPA / PWA */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.tab-btn {
+  transition: all 0.2s ease-in-out;
+}
+.tab-btn.active {
+  border-color: #4f46e5;
+  color: #4f46e5;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+.toast-enter {
+  animation: slideIn 0.25s ease-out forwards;
+}
+
+tr.row-selected {
+  background-color: #f8fafc;
+}
+tr.row-hover:hover {
+  background-color: #f1f5f9;
+}

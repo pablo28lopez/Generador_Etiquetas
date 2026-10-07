@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Generador de Etiquetas de Depósito</title>
+  <link rel="icon" type="image/x-icon" href="/static/img/icono.ico">
+  
+  <!-- PWA Manifest & Meta Tags -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Etiquetas">
+  <link rel="apple-touch-icon" href="/static/img/icon-192.png">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-['Inter']">
+
+  <!-- NAVBAR / HEADER -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <img src="/static/img/logo.png" alt="Logo" class="h-9 w-auto object-contain" onerror="this.style.display='none'">
+        <div class="border-l border-slate-200 pl-3">
+          <h1 class="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            Generador de Etiquetas
+            <span class="text-xs bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full border border-emerald-200">Depósito</span>
+          </h1>
+          <p class="text-xs text-slate-500">Impresión térmica Code39 (60x30 mm)</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <!-- Botón para instalar PWA en Windows/Android/iOS -->
+        <button id="btn-pwa-install" class="hidden inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-all cursor-pointer">
+          <i data-lucide="download" class="w-3.5 h-3.5"></i>
+          <span>Instalar App</span>
+        </button>
+
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          PWA & Docker
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- CONTENEDOR PRINCIPAL -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full flex flex-col gap-6">
+
+    <!-- SECCIÓN DE ENTRADA (TABS: EXCEL VS MANUAL) -->
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <!-- Tabs Header -->
+      <div class="border-b border-slate-200 bg-slate-50/75 px-6 pt-3 flex gap-2">
+        <button id="tab-excel-btn" class="tab-btn active px-4 py-2.5 text-sm font-semibold border-b-2 border-indigo-600 text-indigo-600 flex items-center gap-2">
+          <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+          Importar desde Excel
+        </button>
+        <button id="tab-manual-btn" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
+          <i data-lucide="edit-3" class="w-4 h-4"></i>
+          Carga Manual de Códigos
+        </button>
+      </div>
+
+      <!-- Tab Content 1: Excel -->
+      <div id="tab-excel-content" class="p-6">
+        <div id="drop-zone" class="border-2 border-dashed border-slate-300 hover:border-indigo-500 hover:bg-indigo-50/30 transition-all rounded-xl p-8 text-center cursor-pointer flex flex-col items-center justify-center gap-3">
+          <div class="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <i data-lucide="upload-cloud" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <p class="text-sm font-semibold text-slate-700">Arrastra tu planilla Excel aquí o <span class="text-indigo-600 hover:underline">haz clic para examinar</span></p>
+            <p class="text-xs text-slate-400 mt-1">Soporta formatos <span class="font-mono font-medium text-slate-600">.xlsx</span> y <span class="font-mono font-medium text-slate-600">.xls</span> (Detección automática de códigos con '0')</p>
+          </div>
+          <input type="file" id="excel-file-input" class="hidden" accept=".xlsx, .xls">
+        </div>
+        <div id="file-info-badge" class="hidden mt-3 flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5">
+          <div class="flex items-center gap-3">
+            <i data-lucide="check-circle" class="w-5 h-5 text-emerald-600"></i>
+            <div>
+              <p id="file-name-label" class="text-sm font-semibold text-slate-800">archivo.xlsx</p>
+              <p id="file-items-label" class="text-xs text-slate-500">0 ítems detectados</p>
+            </div>
+          </div>
+          <button id="btn-clear-excel" class="text-xs text-rose-600 hover:text-rose-800 font-semibold px-2 py-1">Quitar</button>
+        </div>
+      </div>
+
+      <!-- Tab Content 2: Manual -->
+      <div id="tab-manual-content" class="p-6 hidden">
+        <div class="flex flex-col md:flex-row gap-3 items-end mb-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
+          <div class="flex-1">
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Código del Ítem</label>
+            <input type="text" id="manual-code" placeholder="Ej: 00123456" class="w-full text-sm font-mono px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none uppercase">
+          </div>
+          <div class="flex-[2]">
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Descripción</label>
+            <input type="text" id="manual-desc" placeholder="Ej: TUERCA HEXAGONAL 3/8" class="w-full text-sm px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none uppercase">
+          </div>
+          <div class="w-24">
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Cantidad</label>
+            <input type="number" id="manual-qty" value="1" min="1" class="w-full text-sm font-semibold text-center px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+          </div>
+          <button id="btn-add-manual" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2 rounded-lg text-sm flex items-center gap-1.5 transition-colors">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            Agregar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ÁREA DE TRABAJO EN 2 COLUMNAS (TABLA + PREVIEW) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+      <!-- COLUMNA IZQUIERDA: LISTA Y EDICIÓN (8 COLS) -->
+      <div class="lg:col-span-8 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+        
+        <!-- Header de la tabla y controles -->
+        <div class="p-4 border-b border-slate-200 flex flex-col sm:flex-row gap-3 justify-between items-center bg-slate-50/50">
+          <div class="relative w-full sm:w-72">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+            <input type="text" id="search-input" placeholder="Buscar por código o descripción..." class="w-full pl-9 pr-3 py-1.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+          </div>
+          
+          <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+            <button id="btn-select-all" class="text-xs font-medium px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md transition-colors">
+              Marcar Todos
+            </button>
+            <button id="btn-deselect-all" class="text-xs font-medium px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md transition-colors">
+              Desmarcar
+            </button>
+            <button id="btn-clear-table" class="text-xs font-medium px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-md transition-colors">
+              Vaciar Lista
+            </button>
+          </div>
+        </div>
+
+        <!-- Tabla dinámica -->
+        <div class="overflow-x-auto max-h-[520px] overflow-y-auto">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead class="bg-slate-100 text-slate-700 sticky top-0 z-10 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
+              <tr>
+                <th class="py-3 px-3 w-10 text-center">
+                  <input type="checkbox" id="th-checkbox" checked class="rounded text-indigo-600 focus:ring-indigo-500">
+                </th>
+                <th class="py-3 px-4 w-36">Código Ítem</th>
+                <th class="py-3 px-4">Descripción</th>
+                <th class="py-3 px-4 w-28 text-center">Cant.</th>
+                <th class="py-3 px-3 w-16 text-center">Acción</th>
+              </tr>
+            </thead>
+            <tbody id="items-tbody" class="divide-y divide-slate-100">
+              <tr id="empty-row" class="text-center py-12">
+                <td colspan="5" class="py-12 text-slate-400">
+                  <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-2 text-slate-300"></i>
+                  No hay ítems cargados. Importa un archivo Excel o usa la carga manual.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Barra inferior de totales -->
+        <div class="p-4 border-t border-slate-200 bg-slate-50 flex flex-wrap justify-between items-center text-xs text-slate-600">
+          <div class="flex items-center gap-4">
+            <span>Ítems listados: <strong id="lbl-total-items" class="text-slate-900 font-bold">0</strong></span>
+            <span>Seleccionados: <strong id="lbl-selected-items" class="text-indigo-600 font-bold">0</strong></span>
+          </div>
+          <div>
+            <span class="text-sm">Total etiquetas a imprimir: <strong id="lbl-total-labels" class="text-emerald-700 font-extrabold text-base">0</strong></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- COLUMNA DERECHA: LIVE PREVIEW Y BOTONES DE ACCIÓN (4 COLS) -->
+      <div class="lg:col-span-4 flex flex-col gap-5 sticky top-20">
+        
+        <!-- Tarjeta de Live Preview -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex flex-col gap-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h2 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <i data-lucide="eye" class="w-4 h-4 text-indigo-600"></i>
+              Vista Previa en Vivo
+            </h2>
+            <span class="text-[11px] font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200">
+              60 x 30 mm
+            </span>
+          </div>
+
+          <!-- Contenedor del diseño de la etiqueta (Proporción exacta 2:1 -> 600x300) -->
+          <div class="relative w-full aspect-[2/1] bg-white border border-slate-300 rounded-lg shadow-sm flex items-center justify-center p-2 overflow-hidden group">
+            <img id="preview-image" src="/api/preview-label?item=012345&description=EJEMPLO%20DE%20ETIQUETA" alt="Vista previa de etiqueta" class="w-full h-full object-contain">
+            <div id="preview-loading" class="hidden absolute inset-0 bg-white/70 backdrop-blur-[1px] flex items-center justify-center">
+              <i data-lucide="loader-2" class="w-6 h-6 animate-spin text-indigo-600"></i>
+            </div>
+          </div>
+          
+          <div class="text-[11px] text-slate-400 text-center">
+            Pasa el cursor o selecciona una fila para previsualizar su código al instante.
+          </div>
+        </div>
+
+        <!-- Tarjeta de Impresión y Descargas -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex flex-col gap-3">
+          <h2 class="text-sm font-bold text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
+            <i data-lucide="printer" class="w-4 h-4 text-emerald-600"></i>
+            Opciones de Impresión
+          </h2>
+
+          <div class="space-y-2 pt-1">
+            <!-- Botón 1: Imprimir directo -->
+            <button id="btn-print-direct" class="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold py-3 px-4 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-all">
+              <i data-lucide="printer" class="w-5 h-5"></i>
+              <span>Imprimir Directo (Navegador)</span>
+            </button>
+
+            <!-- Botón 2: Descargar PDF -->
+            <button id="btn-download-pdf" class="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold py-2.5 px-4 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-all">
+              <i data-lucide="download" class="w-4 h-4"></i>
+              <span>Descargar PDF (60x30 mm)</span>
+            </button>
+
+            <!-- Botón 3: Descargar ZIP -->
+            <button id="btn-download-zip" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors text-xs">
+              <i data-lucide="archive" class="w-4 h-4"></i>
+              <span>Descargar Imágenes (.ZIP)</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <iframe id="print-iframe" class="hidden"></iframe>
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
