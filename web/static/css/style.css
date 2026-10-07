@@ -51,8 +51,8 @@ tr.row-hover:hover {
 }
 
 .preview-box-60x90 {
-  aspect-ratio: 2 / 3;
-  max-height: 380px;
+  aspect-ratio: 3 / 2;
+  max-height: 320px;
 }
 
 /* Botones toggle de tamaño */

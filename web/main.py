@@ -132,48 +132,95 @@ def create_label_image(item: str, description: str, size: str = "60x30") -> Opti
     desc_text = str(description).upper().strip()
 
     if size == "60x90":
-        # Formato 60x90 mm (600x900 px, proporción 2:3)
-        bc_img = generate_barcode_image(item_text, target_size=(580, 200))
-        if bc_img is None:
-            return None
-
-        ancho, alto = 600, 900
+        # Formato Grande 60x90 mm (900x600 px) - Formato institucional DLS Archer Depósito Neuquén
+        ancho, alto = 900, 600
         label = Image.new('RGB', (ancho, alto), 'white')
         draw = ImageDraw.Draw(label)
 
-        # 1. Pegar código de barras ampliado arriba
-        bc_x = (ancho - bc_img.width) // 2
-        bc_y = 35
-        label.paste(bc_img, (bc_x, bc_y))
+        # 1. Logo DLS Archer (arriba a la derecha)
+        logo_path = os.path.join(STATIC_DIR, "img", "logo.png")
+        if not os.path.exists(logo_path):
+            logo_path = os.path.join(BASE_DIR, "logo.png")
 
-        # 2. Código de ítem grande y prominente
-        font_item = get_font("arialbd.ttf", 92)
-        bbox_item = draw.textbbox((0, 0), item_text, font=font_item)
-        item_w = bbox_item[2] - bbox_item[0]
-        item_x = (ancho - item_w) // 2
-        item_y = bc_y + 200 + 15
-        draw.text((item_x, item_y), item_text, fill='black', font=font_item)
+        logo_w, logo_h = 115, 175
+        logo_x = ancho - logo_w - 35
+        logo_y = 25
 
-        # 3. Línea divisoria moderna
-        draw.line([(30, 375), (570, 375)], fill='#888888', width=3)
+        if os.path.exists(logo_path):
+            try:
+                logo = Image.open(logo_path).convert("RGBA")
+                logo_resized = logo.resize((logo_w, logo_h), Image.Resampling.LANCZOS)
+                label.paste(logo_resized, (logo_x, logo_y), logo_resized)
+                pill_right = logo_x - 18
+            except Exception as e:
+                print(f"Error cargando logo en etiqueta 60x90: {e}")
+                pill_right = ancho - 35
+        else:
+            pill_right = ancho - 35
 
-        # 4. Descripción multilínea de alta legibilidad
-        import textwrap
-        font_desc = get_font("arial.ttf", 36)
-        lines = textwrap.wrap(desc_text, width=24)[:6]
-        desc_start_y = 405
-        line_height = 48
+        # 2. Píldora superior (DEPOSITO DLS NEUQUEN)
+        pill_left = 35
+        pill_top = 30
+        pill_bottom = 170
+        draw.rounded_rectangle([pill_left, pill_top, pill_right, pill_bottom], radius=26, outline='#042433', width=9)
+
+        font_header = get_font("arialbd.ttf", 54)
+        header_text = "DEPOSITO DLS NEUQUEN"
+        hb = draw.textbbox((0, 0), header_text, font=font_header)
+        hw = hb[2] - hb[0]
+        hx = pill_left + (pill_right - pill_left - hw) // 2
+        hy = pill_top + (pill_bottom - pill_top - (hb[3] - hb[1])) // 2 - 4
+
+        # Sombra negra y relieve gris
+        draw.text((hx + 3, hy + 3), header_text, font=font_header, fill='black')
+        draw.text((hx, hy), header_text, font=font_header, fill=(160, 160, 160), stroke_width=2, stroke_fill='black')
+
+        # 3. Franja central negra con Código de Ítem en blanco
+        band_left = 35
+        band_right = ancho - 35
+        band_top = 205
+        band_bottom = 340
+        draw.rectangle([band_left, band_top, band_right, band_bottom], fill='black')
+
+        font_item = get_font("arialbd.ttf", 86)
+        ib = draw.textbbox((0, 0), item_text, font=font_item)
+        iw = ib[2] - ib[0]
+        ix = band_left + (band_right - band_left - iw) // 2
+        iy = band_top + (band_bottom - band_top - (ib[3] - ib[1])) // 2 - 6
+        draw.text((ix, iy), item_text, font=font_item, fill='white')
+
+        # 4. Cuadro inferior con Descripción
+        desc_top = 365
+        desc_bottom = 560
+        draw.rectangle([band_left, desc_top, band_right, desc_bottom], outline='black', width=3, fill='white')
+
+        box_w = band_right - band_left - 40
+        box_h = desc_bottom - desc_top
+
+        # Ajuste dinámico de tipografía de descripción
+        font_size = 54
+        font_desc = get_font("arialbd.ttf", font_size)
+        lines = [desc_text]
+
+        if draw.textbbox((0, 0), desc_text, font=font_desc)[2] > box_w:
+            import textwrap
+            font_size = 42
+            font_desc = get_font("arialbd.ttf", font_size)
+            lines = textwrap.wrap(desc_text, width=32)
+            if len(lines) > 2:
+                font_size = 34
+                font_desc = get_font("arialbd.ttf", font_size)
+                lines = textwrap.wrap(desc_text, width=40)[:3]
+
+        line_h = font_size + 12
+        total_text_h = len(lines) * line_h
+        start_y = desc_top + (box_h - total_text_h) // 2
+
         for i, line in enumerate(lines):
-            bbox_line = draw.textbbox((0, 0), line, font=font_desc)
-            line_w = bbox_line[2] - bbox_line[0]
-            line_x = (ancho - line_w) // 2
-            draw.text((line_x, desc_start_y + (i * line_height)), line, fill='black', font=font_desc)
-
-        # 5. Pie de etiqueta térmico
-        draw.line([(30, 820), (570, 820)], fill='#CCCCCC', width=2)
-        font_sub = get_font("arial.ttf", 20)
-        draw.text((35, 835), item_text, fill='#555555', font=font_sub)
-        draw.text((440, 835), '60 x 90 mm', fill='#555555', font=font_sub)
+            bb = draw.textbbox((0, 0), line, font=font_desc)
+            lw_text = bb[2] - bb[0]
+            lx = band_left + (band_right - band_left - lw_text) // 2
+            draw.text((lx, start_y + i * line_h), line, font=font_desc, fill='black')
 
         return label
 
@@ -454,14 +501,15 @@ def generate_pdf(req: GeneratePdfRequest):
     if not req.items:
         raise HTTPException(status_code=400, detail="La lista de ítems está vacía")
 
-    # Determinar tamaño efectivo
-    label_size = req.size or ("60x90" if (req.height_mm or 30.0) >= 80.0 else "60x30")
+    # Determinar tamaño efectivo y orientación
+    label_size = req.size or ("60x90" if (req.height_mm or 30.0) >= 50.0 else "60x30")
     if label_size == "60x90":
-        w_mm, h_mm = 60.0, 90.0
+        w_mm, h_mm = 90.0, 60.0
+        pdf = FPDF("L", "mm", (60.0, 90.0))
     else:
         w_mm, h_mm = 60.0, 30.0
+        pdf = FPDF("P", "mm", (60.0, 30.0))
 
-    pdf = FPDF("P", "mm", (w_mm, h_mm))
     total_etiquetas = 0
 
     for it in req.items:
