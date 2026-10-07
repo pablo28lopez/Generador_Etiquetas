@@ -68,6 +68,11 @@ Acceso desde cualquier navegador en: `http://localhost:8000` (o la IP de tu serv
 ### Instalación como PWA:
 - Abre la web en Chrome, Edge o móvil y haz clic en **"Instalar App"** en la barra superior para agregarla como aplicación de escritorio o acceso móvil.
 
+### 📚 Base de Datos Integrada (DATOS_DEPO.xlsx):
+- **Catálogo de ~36.800 ítems:** Búsqueda ultrarrápida en memoria RAM por código o descripción.
+- **Botón "➕ Nuevo Ítem en Base":** Permite agregar nuevos registros directamente al archivo Excel `DATOS_DEPO.xlsx` respetando el formato original de 4 columnas (`[Código, UOM, None, Descripción]`).
+- **Descarga Directa:** Botón para descargar el Excel actualizado en cualquier momento.
+
 ---
 
 ## 🐙 3. Control de Versiones con Git y GitHub
@@ -78,6 +83,8 @@ Este proyecto utiliza ramas estándar y **tags anotados** para registrar el hist
 - **`v1.0.0`**: Versión inicial Desktop. Soporte de Excel (.xlsx/.xls), códigos Code39, recorte de código de barras, generación de etiquetas 600x300 px y exportación en PDF 60x30 mm.
 - **`v1.1.0`**: Versión Web SPA y contenedorización Docker. Backend FastAPI con procesamiento en memoria RAM (`BytesIO`), drag & drop, live preview y compatibilidad con impresoras térmicas.
 - **`v1.2.0`**: Soporte PWA (Progressive Web App). Manifiesto Web, Service Worker para caché estática, íconos de alta resolución (192px/512px) y botón directo de instalación en el navegador.
+- **`v1.2.1`**: Guía completa de distribución y compartición de la suite.
+- **`v1.3.0`**: Integración de Base de Datos Excel (`DATOS_DEPO.xlsx`), buscador en tiempo real entre ~36.800 ítems, modal para agregar ítems al Excel en el mismo formato original y persistencia en Docker via volumen `data/`.
 
 ### Publicar en tu repositorio de GitHub:
 Para subir este proyecto a tu cuenta de GitHub en la rama **`main`** junto con todos los tags:

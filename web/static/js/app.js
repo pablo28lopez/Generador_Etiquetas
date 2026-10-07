@@ -3,20 +3,24 @@
 let itemsState = [];
 let loadedFileName = "etiquetas";
 let debounceTimer = null;
+let catalogDebounceTimer = null;
 let deferredPrompt = null;
 
-// Inicialización de iconos y eventos
+// Inicialización
 document.addEventListener("DOMContentLoaded", () => {
   if (window.lucide) lucide.createIcons();
   setupPWA();
   setupTabs();
+  setupCatalogSearch();
+  setupAddModal();
   setupDragAndDrop();
   setupManualInput();
   setupTableEvents();
   setupExportEvents();
+  loadCatalogStats();
 });
 
-// Configuración PWA (Service Worker e Instalación)
+// Configuración PWA
 function setupPWA() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
@@ -79,35 +83,241 @@ function showToast(message, type = "info") {
   }, 3500);
 }
 
-// 1. Gestión de Tabs (Excel vs Manual)
+// 1. Gestión de Tabs (Catálogo vs Excel vs Manual)
 function setupTabs() {
-  const tabExcelBtn = document.getElementById("tab-excel-btn");
-  const tabManualBtn = document.getElementById("tab-manual-btn");
-  const tabExcelContent = document.getElementById("tab-excel-content");
-  const tabManualContent = document.getElementById("tab-manual-content");
+  const tabs = [
+    { btn: "tab-catalog-btn", content: "tab-catalog-content" },
+    { btn: "tab-excel-btn", content: "tab-excel-content" },
+    { btn: "tab-manual-btn", content: "tab-manual-content" }
+  ];
 
-  tabExcelBtn.addEventListener("click", () => {
-    tabExcelBtn.classList.add("active", "border-indigo-600", "text-indigo-600");
-    tabExcelBtn.classList.remove("border-transparent", "text-slate-500");
-    tabManualBtn.classList.remove("active", "border-indigo-600", "text-indigo-600");
-    tabManualBtn.classList.add("border-transparent", "text-slate-500");
-
-    tabExcelContent.classList.remove("hidden");
-    tabManualContent.classList.add("hidden");
-  });
-
-  tabManualBtn.addEventListener("click", () => {
-    tabManualBtn.classList.add("active", "border-indigo-600", "text-indigo-600");
-    tabManualBtn.classList.remove("border-transparent", "text-slate-500");
-    tabExcelBtn.classList.remove("active", "border-indigo-600", "text-indigo-600");
-    tabExcelBtn.classList.add("border-transparent", "text-slate-500");
-
-    tabManualContent.classList.remove("hidden");
-    tabExcelContent.classList.add("hidden");
+  tabs.forEach(t => {
+    const btnElem = document.getElementById(t.btn);
+    btnElem.addEventListener("click", () => {
+      tabs.forEach(other => {
+        const b = document.getElementById(other.btn);
+        const c = document.getElementById(other.content);
+        if (other.btn === t.btn) {
+          b.classList.add("active", "border-indigo-600", "text-indigo-600");
+          b.classList.remove("border-transparent", "text-slate-500");
+          c.classList.remove("hidden");
+        } else {
+          b.classList.remove("active", "border-indigo-600", "text-indigo-600");
+          b.classList.add("border-transparent", "text-slate-500");
+          c.classList.add("hidden");
+        }
+      });
+    });
   });
 }
 
-// 2. Drag & Drop y Carga de Archivo Excel
+// 2. Base de Datos / Catálogo (DATOS_DEPO.xlsx)
+async function loadCatalogStats() {
+  try {
+    const res = await fetch("/api/catalog/stats");
+    if (res.ok) {
+      const data = await res.json();
+      const badge = document.getElementById("badge-catalog-count");
+      if (badge) {
+        badge.textContent = `${data.total_items.toLocaleString()} ítems`;
+      }
+    }
+  } catch (err) {
+    console.warn("No se pudo cargar estadísticas de catálogo:", err);
+  }
+}
+
+function setupCatalogSearch() {
+  const input = document.getElementById("catalog-search-input");
+  const resultsBox = document.getElementById("catalog-results-box");
+  const resultsList = document.getElementById("catalog-results-list");
+  const resultsCount = document.getElementById("catalog-results-count");
+
+  input.addEventListener("input", () => {
+    clearTimeout(catalogDebounceTimer);
+    const query = input.value.trim().toUpperCase();
+
+    if (query.length < 2) {
+      resultsBox.classList.add("hidden");
+      resultsList.innerHTML = "";
+      return;
+    }
+
+    catalogDebounceTimer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/catalog/search?q=${encodeURIComponent(query)}&limit=30`);
+        if (!res.ok) return;
+        const items = await res.json();
+
+        resultsList.innerHTML = "";
+        resultsCount.textContent = `${items.length} resultado${items.length === 1 ? '' : 's'}`;
+
+        if (items.length === 0) {
+          resultsList.innerHTML = `
+            <div class="p-4 text-center text-xs text-slate-500">
+              No se encontraron artículos con el término "${query}". Puedes agregarlo usando el botón verde.
+            </div>`;
+          resultsBox.classList.remove("hidden");
+          return;
+        }
+
+        items.forEach(it => {
+          const row = document.createElement("div");
+          row.className = "p-3 hover:bg-slate-100/80 transition-colors flex flex-col sm:flex-row gap-2 justify-between items-start sm:items-center";
+          row.innerHTML = `
+            <div class="flex-1 cursor-pointer catalog-preview-trigger">
+              <div class="flex items-center gap-2">
+                <span class="font-mono text-xs font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-200">${it.item}</span>
+                <span class="text-[11px] text-slate-400 font-medium">UOM: ${it.uom || 'CU'}</span>
+              </div>
+              <p class="text-xs text-slate-800 font-medium mt-1">${it.description}</p>
+            </div>
+            <div class="flex items-center gap-2 self-end sm:self-center">
+              <input type="number" value="1" min="1" class="catalog-qty-input w-12 text-center text-xs font-bold py-1 border border-slate-300 rounded focus:ring-1 focus:ring-indigo-500 outline-none">
+              <button class="btn-add-from-catalog bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                <span>Agregar</span>
+              </button>
+            </div>
+          `;
+
+          // Preview al hacer clic en el texto
+          row.querySelector(".catalog-preview-trigger").addEventListener("click", () => {
+            updatePreview(it.item, it.description);
+          });
+
+          // Botón agregar a cola de impresión
+          const qtyInput = row.querySelector(".catalog-qty-input");
+          row.querySelector(".btn-add-from-catalog").addEventListener("click", () => {
+            const qty = parseInt(qtyInput.value) || 1;
+            addItemToPrintQueue(it.item, it.description, qty);
+            showToast(`Ítem ${it.item} agregado a la cola de impresión`, "success");
+          });
+
+          resultsList.appendChild(row);
+        });
+
+        if (window.lucide) lucide.createIcons();
+        resultsBox.classList.remove("hidden");
+      } catch (err) {
+        console.error("Error buscando en catálogo:", err);
+      }
+    }, 250);
+  });
+}
+
+// 3. Modal para Agregar Ítem a Base de Datos
+function setupAddModal() {
+  const modal = document.getElementById("modal-add-item");
+  const btnOpen1 = document.getElementById("btn-open-add-modal");
+  const btnOpen2 = document.getElementById("btn-trigger-add-modal");
+  const btnClose = document.getElementById("btn-close-modal");
+  const btnCancel = document.getElementById("btn-cancel-modal");
+  const btnSave = document.getElementById("btn-save-modal-item");
+
+  const inputCode = document.getElementById("modal-item-code");
+  const inputUom = document.getElementById("modal-item-uom");
+  const inputDesc = document.getElementById("modal-item-desc");
+  const chkAddToPrint = document.getElementById("modal-add-to-print");
+  const inputQty = document.getElementById("modal-item-qty");
+
+  function openModal() {
+    inputCode.value = "";
+    inputUom.value = "CU";
+    inputDesc.value = "";
+    inputQty.value = "1";
+    chkAddToPrint.checked = true;
+    modal.classList.remove("hidden");
+    inputCode.focus();
+  }
+
+  function closeModal() {
+    modal.classList.add("hidden");
+  }
+
+  if (btnOpen1) btnOpen1.addEventListener("click", openModal);
+  if (btnOpen2) btnOpen2.addEventListener("click", openModal);
+  if (btnClose) btnClose.addEventListener("click", closeModal);
+  if (btnCancel) btnCancel.addEventListener("click", closeModal);
+
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  btnSave.addEventListener("click", async () => {
+    const code = inputCode.value.trim().toUpperCase();
+    const uom = inputUom.value.trim().toUpperCase() || "CU";
+    const desc = inputDesc.value.trim().toUpperCase();
+    const addToPrint = chkAddToPrint.checked;
+    const qty = parseInt(inputQty.value) || 1;
+
+    if (!code) {
+      showToast("Ingrese el código del ítem", "error");
+      inputCode.focus();
+      return;
+    }
+    if (!desc) {
+      showToast("Ingrese la descripción del artículo", "error");
+      inputDesc.focus();
+      return;
+    }
+
+    btnSave.disabled = true;
+    btnSave.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Guardando...</span>`;
+
+    try {
+      const res = await fetch("/api/catalog/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ item: code, description: desc, uom: uom })
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Error guardando en el archivo Excel");
+      }
+
+      const data = await res.json();
+      showToast(data.message, "success");
+      loadCatalogStats();
+
+      // Si solicitó agregarlo a la cola de impresión
+      if (addToPrint) {
+        addItemToPrintQueue(code, desc, qty);
+        updatePreview(code, desc);
+      }
+
+      closeModal();
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      btnSave.disabled = false;
+      btnSave.innerHTML = `<i data-lucide="check" class="w-4 h-4"></i><span>Guardar en Base de Datos</span>`;
+      if (window.lucide) lucide.createIcons();
+    }
+  });
+}
+
+function addItemToPrintQueue(code, description, qty = 1) {
+  // Si ya está en la lista, sumar la cantidad
+  const existing = itemsState.find(it => it.item.toUpperCase() === code.toUpperCase());
+  if (existing) {
+    existing.qty += qty;
+    existing.selected = true;
+  } else {
+    itemsState.push({
+      id: Date.now().toString() + "_" + Math.random().toString(36).substring(2, 5),
+      item: code,
+      description: description,
+      qty: qty,
+      selected: true
+    });
+  }
+  renderTable();
+  updatePreview(code, description);
+}
+
+// 4. Drag & Drop y Carga de Archivo Excel
 function setupDragAndDrop() {
   const dropZone = document.getElementById("drop-zone");
   const fileInput = document.getElementById("excel-file-input");
@@ -200,7 +410,7 @@ async function handleExcelFile(file) {
   }
 }
 
-// 3. Carga Manual de Códigos
+// 5. Carga Manual de Códigos
 function setupManualInput() {
   const codeIn = document.getElementById("manual-code");
   const descIn = document.getElementById("manual-desc");
@@ -218,22 +428,13 @@ function setupManualInput() {
       return;
     }
 
-    itemsState.push({
-      id: Date.now().toString(),
-      item: code,
-      description: desc,
-      qty: qty,
-      selected: true
-    });
-
-    renderTable();
-    updatePreview(code, desc);
+    addItemToPrintQueue(code, desc, qty);
 
     codeIn.value = "";
     descIn.value = "";
     qtyIn.value = "1";
     codeIn.focus();
-    showToast(`Ítem ${code} agregado`, "success");
+    showToast(`Ítem ${code} agregado a impresión`, "success");
   }
 
   btnAdd.addEventListener("click", addItem);
@@ -244,7 +445,7 @@ function setupManualInput() {
   });
 }
 
-// 4. Renderizado y Eventos de la Tabla
+// 6. Renderizado y Eventos de la Tabla
 function setupTableEvents() {
   document.getElementById("search-input").addEventListener("input", filterTable);
 
@@ -264,7 +465,7 @@ function setupTableEvents() {
   });
 
   document.getElementById("btn-clear-table").addEventListener("click", () => {
-    if (confirm("¿Desea vaciar todos los ítems de la lista?")) {
+    if (confirm("¿Desea vaciar todos los ítems de la lista de impresión?")) {
       itemsState = [];
       renderTable();
       showToast("Lista vaciada", "info");
@@ -281,7 +482,7 @@ function renderTable() {
       <tr class="text-center py-12">
         <td colspan="5" class="py-12 text-slate-400">
           <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-2 text-slate-300"></i>
-          No hay ítems cargados. Importa un archivo Excel o usa la carga manual.
+          No hay ítems en la cola de impresión. Busca en la base de datos, carga un Excel o usa la carga manual.
         </td>
       </tr>`;
     if (window.lucide) lucide.createIcons();
@@ -307,7 +508,7 @@ function renderTable() {
         <span class="bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-200 text-xs">${item.item}</span>
       </td>
       <td class="py-2.5 px-4 text-slate-700">
-        <input type="text" value="${item.description}" class="item-desc-input w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-300 focus:border-indigo-500 rounded px-2 py-1 text-xs outline-none">
+        <input type="text" value="${item.description}" class="item-desc-input w-full bg-transparent hover:bg-white focus:bg-white border border-transparent hover:border-slate-300 focus:border-indigo-500 rounded px-2 py-1 text-xs outline-none uppercase">
       </td>
       <td class="py-2.5 px-4 text-center">
         <div class="flex items-center justify-center gap-1">
@@ -395,7 +596,7 @@ function updateTotals() {
   document.getElementById("lbl-total-labels").textContent = labelsCount;
 }
 
-// 5. Previsualizador en Vivo
+// 7. Previsualizador en Vivo
 function updatePreview(item, description) {
   const img = document.getElementById("preview-image");
   const loader = document.getElementById("preview-loading");
@@ -414,7 +615,7 @@ function updatePreview(item, description) {
   tempImg.src = url;
 }
 
-// 6. Generación de PDF, Impresión y Descarga ZIP
+// 8. Generación de PDF, Impresión y Descarga ZIP
 function setupExportEvents() {
   const btnPrintDirect = document.getElementById("btn-print-direct");
   const btnDownloadPdf = document.getElementById("btn-download-pdf");

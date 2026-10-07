@@ -26,6 +26,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 COPY main.py .
 COPY fonts/ ./fonts/
 COPY static/ ./static/
+COPY data/ ./data/
 
 # Usuario seguro no-root
 RUN useradd -m -u 1000 appuser && \

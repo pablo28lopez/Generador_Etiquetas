@@ -9,6 +9,7 @@ from fastapi.responses import Response, StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import pandas as pd
+import openpyxl
 import barcode
 from barcode.writer import ImageWriter
 from PIL import Image, ImageDraw, ImageFont
@@ -18,13 +19,60 @@ from fpdf import FPDF
 app = FastAPI(
     title="Generador de Etiquetas de Depósito",
     description="API y SPA / PWA para generar etiquetas con código de barras e impresión térmica en PDF",
-    version="2.0.0"
+    version="2.1.0"
 )
 
 # Rutas base
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "data")
 FONTS_DIR = os.path.join(BASE_DIR, "fonts")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
+CATALOG_PATH = os.path.join(DATA_DIR, "DATOS_DEPO.xlsx")
+
+# Asegurar directorios
+os.makedirs(DATA_DIR, exist_ok=True)
+
+# Catálogo en memoria
+catalog_cache: List[dict] = []
+catalog_unique_codes = set()
+
+
+def load_catalog():
+    """Carga el catálogo Excel DATOS_DEPO.xlsx en memoria RAM para búsquedas instantáneas."""
+    global catalog_cache, catalog_unique_codes
+    if not os.path.exists(CATALOG_PATH):
+        print(f"[Aviso] Archivo de catálogo {CATALOG_PATH} no encontrado.")
+        return
+
+    try:
+        # header=None porque DATOS_DEPO.xlsx no tiene fila de títulos
+        df = pd.read_excel(CATALOG_PATH, header=None, dtype=str)
+        items = []
+        codes = set()
+
+        for _, row in df.iterrows():
+            code = str(row[0] if not pd.isna(row[0]) else "").strip()
+            uom = str(row[1] if not pd.isna(row[1]) else "").strip()
+            desc = str(row[3] if not pd.isna(row[3]) else "").strip()
+            if code and code not in codes:
+                codes.add(code)
+                items.append({
+                    "item": code,
+                    "uom": uom or "CU",
+                    "description": desc
+                })
+
+        catalog_cache = items
+        catalog_unique_codes = codes
+        print(f"[Catálogo] Cargados {len(catalog_cache)} ítems únicos de {len(df)} registros.")
+    except Exception as e:
+        print(f"[Error] Falló la carga del catálogo {CATALOG_PATH}: {e}")
+
+
+@app.on_event("startup")
+def on_startup():
+    load_catalog()
+
 
 # Carga de fuentes segura
 def get_font(font_name: str, size: int) -> ImageFont.ImageFont:
@@ -34,7 +82,6 @@ def get_font(font_name: str, size: int) -> ImageFont.ImageFont:
             return ImageFont.truetype(font_path, size)
         except Exception:
             pass
-    # Fallback al sistema operativo
     try:
         return ImageFont.truetype(font_name, size)
     except Exception:
@@ -62,7 +109,6 @@ def generate_barcode_image(item: str) -> Optional[Image.Image]:
 
         bc = code39(item_str, writer=writer, add_checksum=False)
         
-        # Generar en memoria sin escribir en disco
         fp = io.BytesIO()
         bc.write(fp)
         fp.seek(0)
@@ -70,7 +116,6 @@ def generate_barcode_image(item: str) -> Optional[Image.Image]:
         with Image.open(fp) as raw_img:
             img_rgb = raw_img.convert("RGB")
             width, height = img_rgb.size
-            # Recortar texto inferior (quedarse con el 70% superior)
             img_cropped = img_rgb.crop((0, 0, width, int(height * 0.70)))
             return img_cropped.resize((595, 120))
     except Exception as e:
@@ -139,12 +184,24 @@ class GeneratePdfRequest(BaseModel):
     height_mm: Optional[float] = 30.0
 
 
+class AddCatalogItemRequest(BaseModel):
+    item: str
+    description: str
+    uom: Optional[str] = "CU"
+
+
 # ==========================================
-# ENDPOINTS API
+# ENDPOINTS API - GENERAL Y PREVIEW
 # ==========================================
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "app": "Generador de Etiquetas Web", "version": "2.0.0"}
+    return {
+        "status": "ok",
+        "app": "Generador de Etiquetas Web",
+        "version": "2.1.0",
+        "catalog_loaded": len(catalog_cache) > 0,
+        "total_catalog_items": len(catalog_cache)
+    }
 
 
 @app.get("/api/preview-label")
@@ -160,9 +217,111 @@ def preview_label(item: str = Query("012345"), description: str = Query("EJEMPLO
     return Response(content=buffer.getvalue(), media_type="image/jpeg")
 
 
+# ==========================================
+# ENDPOINTS API - BASE DE DATOS / CATÁLOGO
+# ==========================================
+@app.get("/api/catalog/stats")
+def get_catalog_stats():
+    """Devuelve estadísticas de la base de datos DATOS_DEPO.xlsx."""
+    return {
+        "total_items": len(catalog_cache),
+        "filename": os.path.basename(CATALOG_PATH),
+        "exists": os.path.exists(CATALOG_PATH)
+    }
+
+
+@app.get("/api/catalog/search")
+def search_catalog(q: str = Query("", min_length=1), limit: int = 50):
+    """Busca artículos en la base de datos por código o descripción."""
+    query = q.strip().upper()
+    if not query:
+        return []
+
+    results = []
+    # 1. Priorizar los que coinciden al principio del código
+    for item in catalog_cache:
+        if item["item"].startswith(query):
+            results.append(item)
+            if len(results) >= limit:
+                return results
+
+    # 2. Agregar los que contengan el término en código o descripción
+    for item in catalog_cache:
+        if item in results:
+            continue
+        if query in item["item"] or query in item["description"].upper():
+            results.append(item)
+            if len(results) >= limit:
+                break
+
+    return results
+
+
+@app.post("/api/catalog/add")
+def add_catalog_item(req: AddCatalogItemRequest):
+    """Agrega un nuevo ítem al archivo Excel DATOS_DEPO.xlsx manteniendo exactamente el formato de 4 columnas."""
+    item_code = req.item.strip().upper()
+    desc = req.description.strip().upper()
+    uom = (req.uom or "CU").strip().upper()
+
+    if not item_code or not desc:
+        raise HTTPException(status_code=400, detail="El código de ítem y la descripción son obligatorios.")
+
+    # Guardar en el archivo Excel DATOS_DEPO.xlsx con openpyxl
+    try:
+        if os.path.exists(CATALOG_PATH):
+            wb = openpyxl.load_workbook(CATALOG_PATH)
+            sheet = wb.active
+        else:
+            wb = openpyxl.Workbook()
+            sheet = wb.active
+            sheet.title = "Hoja1"
+
+        # Formato exacto original de 4 columnas: [Item, UOM, None, Description]
+        sheet.append([item_code, uom, None, desc])
+        wb.save(CATALOG_PATH)
+        wb.close()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error escribiendo en el archivo Excel: {str(e)}")
+
+    # Actualizar caché en memoria RAM inmediatamente
+    new_entry = {"item": item_code, "uom": uom, "description": desc}
+    found = False
+    for i, it in enumerate(catalog_cache):
+        if it["item"] == item_code:
+            catalog_cache[i] = new_entry
+            found = True
+            break
+    if not found:
+        catalog_cache.insert(0, new_entry)
+        catalog_unique_codes.add(item_code)
+
+    return {
+        "status": "success",
+        "message": f"Ítem '{item_code}' agregado exitosamente al catálogo.",
+        "item": new_entry,
+        "total_items": len(catalog_cache)
+    }
+
+
+@app.get("/api/catalog/download")
+def download_catalog():
+    """Permite descargar el archivo DATOS_DEPO.xlsx actualizado."""
+    if not os.path.exists(CATALOG_PATH):
+        raise HTTPException(status_code=404, detail="El archivo DATOS_DEPO.xlsx no se encuentra en el servidor.")
+    return FileResponse(
+        CATALOG_PATH,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename="DATOS_DEPO.xlsx"
+    )
+
+
+# ==========================================
+# ENDPOINTS API - EXCEL EXTERNO, PDF Y ZIP
+# ==========================================
 @app.post("/api/upload-excel")
 async def upload_excel(file: UploadFile = File(...)):
-    """Parsea el archivo Excel (.xlsx o .xls) manteniendo ceros a la izquierda."""
+    """Parsea un archivo Excel subido manteniendo ceros a la izquierda."""
     if not (file.filename.endswith(".xlsx") or file.filename.endswith(".xls")):
         raise HTTPException(status_code=400, detail="El archivo debe ser formato .xlsx o .xls")
 
@@ -177,7 +336,6 @@ async def upload_excel(file: UploadFile = File(...)):
     if df.empty:
         raise HTTPException(status_code=400, detail="El archivo Excel está vacío")
 
-    # Buscar primera columna con valor que comience con '0'
     columna_codigo = None
     inicio_fila = None
 
@@ -235,14 +393,13 @@ async def upload_excel(file: UploadFile = File(...)):
 
 @app.post("/api/generate-pdf")
 def generate_pdf(req: GeneratePdfRequest):
-    """Genera el documento PDF de etiquetas (por defecto 60x30 mm) en memoria."""
+    """Genera el documento PDF de etiquetas en memoria."""
     if not req.items:
         raise HTTPException(status_code=400, detail="La lista de ítems está vacía")
 
     pdf = FPDF("P", "mm", (req.width_mm, req.height_mm))
-
     total_etiquetas = 0
-    # Generar en memoria
+
     for it in req.items:
         if it.qty <= 0 or not it.item.strip():
             continue

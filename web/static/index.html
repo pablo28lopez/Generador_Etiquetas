@@ -40,6 +40,12 @@
         </div>
       </div>
       <div class="flex items-center gap-3">
+        <!-- Botón para Agregar Ítem a la Base de Datos -->
+        <button id="btn-open-add-modal" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all cursor-pointer">
+          <i data-lucide="plus-circle" class="w-4 h-4"></i>
+          <span>Nuevo Ítem en Base</span>
+        </button>
+
         <!-- Botón para instalar PWA en Windows/Android/iOS -->
         <button id="btn-pwa-install" class="hidden inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-all cursor-pointer">
           <i data-lucide="download" class="w-3.5 h-3.5"></i>
@@ -57,29 +63,67 @@
   <!-- CONTENEDOR PRINCIPAL -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full flex flex-col gap-6">
 
-    <!-- SECCIÓN DE ENTRADA (TABS: EXCEL VS MANUAL) -->
+    <!-- SECCIÓN DE ENTRADA (3 TABS: BASE DE DATOS VS EXCEL VS MANUAL) -->
     <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
       <!-- Tabs Header -->
-      <div class="border-b border-slate-200 bg-slate-50/75 px-6 pt-3 flex gap-2">
-        <button id="tab-excel-btn" class="tab-btn active px-4 py-2.5 text-sm font-semibold border-b-2 border-indigo-600 text-indigo-600 flex items-center gap-2">
+      <div class="border-b border-slate-200 bg-slate-50/75 px-6 pt-3 flex flex-wrap gap-2">
+        <button id="tab-catalog-btn" class="tab-btn active px-4 py-2.5 text-sm font-semibold border-b-2 border-indigo-600 text-indigo-600 flex items-center gap-2">
+          <i data-lucide="database" class="w-4 h-4"></i>
+          Base de Datos (DATOS_DEPO)
+          <span id="badge-catalog-count" class="text-[11px] bg-indigo-100 text-indigo-700 font-bold px-1.5 py-0.5 rounded-full">...</span>
+        </button>
+        <button id="tab-excel-btn" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
           <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
-          Importar desde Excel
+          Importar Planilla Externa (.xlsx/.xls)
         </button>
         <button id="tab-manual-btn" class="tab-btn px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2">
           <i data-lucide="edit-3" class="w-4 h-4"></i>
-          Carga Manual de Códigos
+          Carga Manual Rápida
         </button>
       </div>
 
-      <!-- Tab Content 1: Excel -->
-      <div id="tab-excel-content" class="p-6">
+      <!-- Tab Content 1: Catálogo Base de Datos (DATOS_DEPO.xlsx) -->
+      <div id="tab-catalog-content" class="p-6">
+        <div class="flex flex-col gap-4">
+          <div class="flex flex-col sm:flex-row gap-3 items-center justify-between">
+            <div class="relative w-full sm:flex-1">
+              <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+              <input type="text" id="catalog-search-input" placeholder="Buscar en los ~36.800 ítems por código (ej: 0100...) o descripción..." class="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 hover:bg-white focus:bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none uppercase font-mono">
+            </div>
+            <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+              <button id="btn-trigger-add-modal" class="text-xs font-semibold px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg flex items-center gap-1.5 transition-colors">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                Agregar Ítem a la Base
+              </button>
+              <a href="/api/catalog/download" class="text-xs font-semibold px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg flex items-center gap-1.5 transition-colors" title="Descargar DATOS_DEPO.xlsx">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                Descargar Excel
+              </a>
+            </div>
+          </div>
+
+          <!-- Resultados de búsqueda en el catálogo -->
+          <div id="catalog-results-box" class="hidden border border-slate-200 rounded-lg overflow-hidden bg-slate-50/50">
+            <div class="p-2.5 bg-slate-100 border-b border-slate-200 text-xs font-semibold text-slate-600 flex justify-between items-center">
+              <span>Resultados encontrados en DATOS_DEPO.xlsx:</span>
+              <span id="catalog-results-count" class="font-bold text-indigo-600">0</span>
+            </div>
+            <div id="catalog-results-list" class="max-h-60 overflow-y-auto divide-y divide-slate-200">
+              <!-- Resultados dinámicos -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Content 2: Excel Externo -->
+      <div id="tab-excel-content" class="p-6 hidden">
         <div id="drop-zone" class="border-2 border-dashed border-slate-300 hover:border-indigo-500 hover:bg-indigo-50/30 transition-all rounded-xl p-8 text-center cursor-pointer flex flex-col items-center justify-center gap-3">
           <div class="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center">
             <i data-lucide="upload-cloud" class="w-6 h-6"></i>
           </div>
           <div>
             <p class="text-sm font-semibold text-slate-700">Arrastra tu planilla Excel aquí o <span class="text-indigo-600 hover:underline">haz clic para examinar</span></p>
-            <p class="text-xs text-slate-400 mt-1">Soporta formatos <span class="font-mono font-medium text-slate-600">.xlsx</span> y <span class="font-mono font-medium text-slate-600">.xls</span> (Detección automática de códigos con '0')</p>
+            <p class="text-xs text-slate-400 mt-1">Soporta formatos <span class="font-mono font-medium text-slate-600">.xlsx</span> y <span class="font-mono font-medium text-slate-600">.xls</span></p>
           </div>
           <input type="file" id="excel-file-input" class="hidden" accept=".xlsx, .xls">
         </div>
@@ -95,9 +139,9 @@
         </div>
       </div>
 
-      <!-- Tab Content 2: Manual -->
+      <!-- Tab Content 3: Manual -->
       <div id="tab-manual-content" class="p-6 hidden">
-        <div class="flex flex-col md:flex-row gap-3 items-end mb-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
+        <div class="flex flex-col md:flex-row gap-3 items-end bg-slate-50 p-4 rounded-lg border border-slate-200">
           <div class="flex-1">
             <label class="block text-xs font-semibold text-slate-600 mb-1">Código del Ítem</label>
             <input type="text" id="manual-code" placeholder="Ej: 00123456" class="w-full text-sm font-mono px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none uppercase">
@@ -112,7 +156,7 @@
           </div>
           <button id="btn-add-manual" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-4 py-2 rounded-lg text-sm flex items-center gap-1.5 transition-colors">
             <i data-lucide="plus" class="w-4 h-4"></i>
-            Agregar
+            Agregar a Impresión
           </button>
         </div>
       </div>
@@ -128,7 +172,7 @@
         <div class="p-4 border-b border-slate-200 flex flex-col sm:flex-row gap-3 justify-between items-center bg-slate-50/50">
           <div class="relative w-full sm:w-72">
             <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
-            <input type="text" id="search-input" placeholder="Buscar por código o descripción..." class="w-full pl-9 pr-3 py-1.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+            <input type="text" id="search-input" placeholder="Filtrar en lista de impresión..." class="w-full pl-9 pr-3 py-1.5 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
           </div>
           
           <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
@@ -162,7 +206,7 @@
               <tr id="empty-row" class="text-center py-12">
                 <td colspan="5" class="py-12 text-slate-400">
                   <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-2 text-slate-300"></i>
-                  No hay ítems cargados. Importa un archivo Excel o usa la carga manual.
+                  No hay ítems en la cola de impresión. Busca en la base de datos, carga un Excel o usa la carga manual.
                 </td>
               </tr>
             </tbody>
@@ -217,19 +261,16 @@
           </h2>
 
           <div class="space-y-2 pt-1">
-            <!-- Botón 1: Imprimir directo -->
             <button id="btn-print-direct" class="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold py-3 px-4 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-all">
               <i data-lucide="printer" class="w-5 h-5"></i>
               <span>Imprimir Directo (Navegador)</span>
             </button>
 
-            <!-- Botón 2: Descargar PDF -->
             <button id="btn-download-pdf" class="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold py-2.5 px-4 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-all">
               <i data-lucide="download" class="w-4 h-4"></i>
               <span>Descargar PDF (60x30 mm)</span>
             </button>
 
-            <!-- Botón 3: Descargar ZIP -->
             <button id="btn-download-zip" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors text-xs">
               <i data-lucide="archive" class="w-4 h-4"></i>
               <span>Descargar Imágenes (.ZIP)</span>
@@ -242,6 +283,72 @@
     </div>
 
   </main>
+
+  <!-- MODAL: AGREGAR ÍTEM A LA BASE DE DATOS (DATOS_DEPO.xlsx) -->
+  <div id="modal-add-item" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden transform transition-all animate-in fade-in zoom-in-95 duration-200">
+      
+      <!-- Header del Modal -->
+      <div class="bg-slate-50 border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+            <i data-lucide="database" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-900">Nuevo Ítem en Base de Datos</h3>
+            <p class="text-[11px] text-slate-500">Se guardará físicamente en DATOS_DEPO.xlsx</p>
+          </div>
+        </div>
+        <button id="btn-close-modal" class="text-slate-400 hover:text-slate-700 p-1 rounded-md">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Formulario del Modal -->
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Código del Ítem *</label>
+          <input type="text" id="modal-item-code" placeholder="Ej: 01000008N o HP01003502D" class="w-full font-mono text-sm px-3.5 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none uppercase font-semibold">
+          <p class="text-[11px] text-slate-400 mt-1">Columna 1: Código alfanumérico único.</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Unidad de Medida (UOM)</label>
+          <input type="text" id="modal-item-uom" value="CU" placeholder="CU" class="w-full font-mono text-sm px-3.5 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none uppercase font-semibold">
+          <p class="text-[11px] text-slate-400 mt-1">Columna 2: Generalmente 'CU'.</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Descripción del Artículo *</label>
+          <textarea id="modal-item-desc" rows="2" placeholder="Ej: SENSOR DE PRESIÓN 4-20MA DANFOSS" class="w-full text-sm px-3.5 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none uppercase"></textarea>
+          <p class="text-[11px] text-slate-400 mt-1">Columna 4: Descripción impresa en la etiqueta.</p>
+        </div>
+
+        <div class="pt-2 border-t border-slate-100 flex items-center justify-between">
+          <label class="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700 select-none">
+            <input type="checkbox" id="modal-add-to-print" checked class="rounded text-indigo-600 focus:ring-indigo-500">
+            <span>Agregar también a lista de impresión</span>
+          </label>
+          <div class="flex items-center gap-1.5" id="modal-qty-container">
+            <span class="text-xs text-slate-500">Cant:</span>
+            <input type="number" id="modal-item-qty" value="1" min="1" class="w-14 text-center text-xs font-bold py-1 border border-slate-300 rounded focus:ring-1 focus:ring-indigo-500 outline-none">
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer del Modal -->
+      <div class="bg-slate-50 px-6 py-3.5 border-t border-slate-200 flex justify-end gap-2">
+        <button id="btn-cancel-modal" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 rounded-lg transition-colors">
+          Cancelar
+        </button>
+        <button id="btn-save-modal-item" class="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm flex items-center gap-1.5 transition-colors">
+          <i data-lucide="check" class="w-4 h-4"></i>
+          <span>Guardar en Base de Datos</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
 
   <iframe id="print-iframe" class="hidden"></iframe>
   <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
