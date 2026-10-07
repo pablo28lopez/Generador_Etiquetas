@@ -24,6 +24,10 @@ generador-etiquetas/
     ├── .dockerignore       # Exclusiones de construcción de imagen Docker
     ├── requirements.txt    # Dependencias web (FastAPI, Uvicorn, Pandas, FPDF2, Barcode)
     ├── main.py             # Backend FastAPI con generación en memoria RAM
+    ├── iniciar_app.bat     # Lanzador por lotes con inicio automático del servidor
+    ├── iniciar_app.vbs     # Lanzador silencioso sin consola para acceso directo
+    ├── detener_servidor.bat# Script para detener el servidor local (puerto 8000)
+    ├── launcher.py         # Orquestador Python y apertura en modo ventana app
     ├── run_local.bat       # Servidor local para pruebas en Windows (CRLF)
     ├── fonts/              # Fuentes Arial incluidas
     └── static/             # Frontend Single Page Application & PWA
@@ -53,9 +57,15 @@ generador-etiquetas/
 
 ## 🌐 2. Versión Web (SPA / PWA) & Docker
 
-### Probar Localmente en Windows (Sin Docker):
+### Acceso Directo de 1 Clic desde el Escritorio:
+1. Haz doble clic en el acceso directo de tu Escritorio: **`Generador de Etiquetas (Web).lnk`** (o ejecuta **`iniciar_app.vbs`**).
+2. El script detectará si el servidor ya está corriendo. Si no lo está, lo iniciará silenciosamente en segundo plano.
+3. Se abrirá la aplicación directamente en modo ventana nativa independiente (utilizando Microsoft Edge o Google Chrome sin distracciones de barras de navegación ni pestañas).
+4. Para detener el servidor si lo requieres, ejecuta **`detener_servidor.bat`**.
+
+### Probar Localmente en Windows (Modo Consola):
 1. Entra a la carpeta `web`.
-2. Haz doble clic en **`run_local.bat`**.
+2. Haz doble clic en **`iniciar_app.bat`** o **`run_local.bat`**.
 3. Abre automáticamente tu navegador en `http://localhost:8000`.
 
 ### Desplegar en Docker:
@@ -85,6 +95,7 @@ Este proyecto utiliza ramas estándar y **tags anotados** para registrar el hist
 - **`v1.2.0`**: Soporte PWA (Progressive Web App). Manifiesto Web, Service Worker para caché estática, íconos de alta resolución (192px/512px) y botón directo de instalación en el navegador.
 - **`v1.2.1`**: Guía completa de distribución y compartición de la suite.
 - **`v1.3.0`**: Integración de Base de Datos Excel (`DATOS_DEPO.xlsx`), buscador en tiempo real entre ~36.800 ítems, modal para agregar ítems al Excel en el mismo formato original y persistencia en Docker via volumen `data/`.
+- **`v1.3.1`**: Lanzadores de 1 clic silenciosos (`iniciar_app.bat`, `iniciar_app.vbs`), apertura en modo ventana app (`--app`) y accesos directos oficiales en el Escritorio de Windows con icono institucional.
 
 ### Publicar en tu repositorio de GitHub:
 Para subir este proyecto a tu cuenta de GitHub en la rama **`main`** junto con todos los tags:
