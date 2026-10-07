@@ -106,3 +106,30 @@ git tag -a v1.3.0 -m "Versión 1.3.0:
 git push origin main
 git push origin --tags
 ```
+
+---
+
+## 📢 4. Cómo Compartir la Aplicación con Otros Usuarios
+
+Tienes 4 formas prácticas de compartirla según tus necesidades:
+
+### A. Para usuarios que quieren la aplicación en su PC (Windows)
+1. **Compartir directamente el archivo:** Envíales el archivo `Instalador_Generador_Etiquetas_Setup.exe` o `GeneradorEtiquetas.exe` por red interna, Google Drive, OneDrive o Teams. No necesitan tener Python instalado.
+2. **Mediante GitHub Releases:** En tu repositorio de GitHub, entra a la sección **Releases**, selecciona tu tag (ej. `v1.2.0`) y adjunta el archivo `.exe`. Los usuarios podrán descargarlo directamente desde GitHub en cualquier momento.
+
+### B. Para uso en la red de la empresa (Wi-Fi / LAN sin instalar nada)
+1. En tu máquina, ejecuta `web\run_local.bat` (o déjalo corriendo en un servidor).
+2. Pásales tu dirección IP local:
+   👉 **`http://10.12.70.126:8000`**
+3. Cualquier dispositivo (PC, tablet o celular en el depósito) podrá abrir la app en su navegador e incluso hacer clic en **"Instalar App"** para usarla en pantalla completa como una app nativa.
+
+### C. Para mostrarla o probarla por Internet (Túnel temporal sin configurar routers)
+1. Con la app corriendo en tu PC, abre una terminal y ejecuta:
+   ```bash
+   cloudflared tunnel --url http://localhost:8000
+   ```
+2. Te entregará un enlace HTTPS público temporal (ej: `https://palabras-aleatorias.trycloudflare.com`) que puedes pasarle a cualquier persona en el mundo.
+
+### D. Para alojamiento permanente 24/7 (En Docker)
+Copia la carpeta `web` a un servidor o VPS con Docker y ejecuta `docker compose up -d --build`. La app estará disponible permanentemente en la IP o dominio de tu servidor.
+
