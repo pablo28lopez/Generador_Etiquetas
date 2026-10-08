@@ -187,19 +187,19 @@ def crear_imagen_etiqueta(item: str, description: str, size: str = "60x30") -> O
         # Recuadro redondeado sin relleno
         draw.rounded_rectangle([pill_left, pill_top, pill_right, pill_bottom], radius=18, outline='black', width=4, fill='white')
 
-        # Texto DLS DEPOSITO NEUQUEN en Arial Bold negro sólido
-        font_header = obtener_fuente("arialbd.ttf", 44)
+        # Texto DLS DEPOSITO NEUQUEN en Arial Bold negro sólido (tamaño 52)
+        font_header = obtener_fuente("arialbd.ttf", 52)
         header_text = "DLS DEPOSITO NEUQUEN"
         hb = draw.textbbox((0, 0), header_text, font=font_header)
         hw = hb[2] - hb[0]
         hx = pill_left + (pill_right - pill_left - hw) // 2
-        hy = pill_top + (pill_bottom - pill_top - (hb[3] - hb[1])) // 2 - 3
+        hy = pill_top + (pill_bottom - pill_top - (hb[3] - hb[1])) // 2 - 4
         draw.text((hx, hy), header_text, font=font_header, fill='black')
 
-        # 2. Recuadro del Código de Ítem (SIN RELLENO - Fondo blanco con borde negro)
+        # 2. Recuadro del Código de Ítem (Fondo NEGRO sólido con texto en BLANCO)
         code_top = 175
         code_bottom = 320
-        draw.rectangle([margin_x, code_top, w - margin_x, code_bottom], outline='black', width=4, fill='white')
+        draw.rectangle([margin_x, code_top, w - margin_x, code_bottom], fill='black')
 
         it_size = 96
         font_item = obtener_fuente("arialbd.ttf", it_size)
@@ -211,7 +211,7 @@ def crear_imagen_etiqueta(item: str, description: str, size: str = "60x30") -> O
 
         ix = (w - (ib[2] - ib[0])) // 2
         iy = code_top + (code_bottom - code_top - (ib[3] - ib[1])) // 2 - 5
-        draw.text((ix, iy), item_text, font=font_item, fill='black')
+        draw.text((ix, iy), item_text, font=font_item, fill='white')
 
         # 3. Cuadro inferior de Descripción (SIN RELLENO - Fondo blanco con borde negro)
         desc_top = 340

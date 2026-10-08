@@ -175,19 +175,19 @@ def create_label_image(item: str, description: str, size: str = "60x30") -> Opti
         # Recuadro redondeado sin relleno (borde negro, fondo blanco)
         draw.rounded_rectangle([pill_left, pill_top, pill_right, pill_bottom], radius=18, outline='black', width=4, fill='white')
 
-        # Texto DLS DEPOSITO NEUQUEN en Arial Bold negro sólido, sin relieve ni sombras ni degradados
-        font_header = get_font("arialbd.ttf", 44)
+        # Texto DLS DEPOSITO NEUQUEN en Arial Bold negro sólido (un poco más grande, tamaño 52)
+        font_header = get_font("arialbd.ttf", 52)
         header_text = "DLS DEPOSITO NEUQUEN"
         hb = draw.textbbox((0, 0), header_text, font=font_header)
         hw = hb[2] - hb[0]
         hx = pill_left + (pill_right - pill_left - hw) // 2
-        hy = pill_top + (pill_bottom - pill_top - (hb[3] - hb[1])) // 2 - 3
+        hy = pill_top + (pill_bottom - pill_top - (hb[3] - hb[1])) // 2 - 4
         draw.text((hx, hy), header_text, font=font_header, fill='black')
 
-        # 2. Recuadro del Código de Ítem (SIN RELLENO NEGRO - Fondo blanco, borde negro, texto negro Arial Bold)
+        # 2. Recuadro del Código de Ítem (Fondo NEGRO sólido con texto en BLANCO)
         code_top = 175
         code_bottom = 320
-        draw.rectangle([margin_x, code_top, w - margin_x, code_bottom], outline='black', width=4, fill='white')
+        draw.rectangle([margin_x, code_top, w - margin_x, code_bottom], fill='black')
 
         it_size = 96
         font_item = get_font("arialbd.ttf", it_size)
@@ -199,7 +199,7 @@ def create_label_image(item: str, description: str, size: str = "60x30") -> Opti
 
         ix = (w - (ib[2] - ib[0])) // 2
         iy = code_top + (code_bottom - code_top - (ib[3] - ib[1])) // 2 - 5
-        draw.text((ix, iy), item_text, font=font_item, fill='black')
+        draw.text((ix, iy), item_text, font=font_item, fill='white')
 
         # 3. Cuadro inferior con Descripción Enmarcado (SIN RELLENO - Fondo blanco, borde negro, texto Arial Bold)
         desc_top = 340
@@ -568,12 +568,12 @@ def generate_print_html(req: GeneratePdfRequest):
     if label_size in ("60x95", "60x90", "62x100"):
         w_mm = 100
         h_mm = 62
-        page_size_css = "62mm 100mm landscape"
+        page_size_css = "100mm 62mm"
         paper_badge = "62mm x 100mm (DK-11202 / Rollo 62mm)"
     else:
         w_mm = 62
         h_mm = 29
-        page_size_css = "62mm 29mm landscape"
+        page_size_css = "62mm 29mm"
         paper_badge = "62mm x 29mm (DK-11209 / Rollo 62mm)"
 
     cache_images = {}

@@ -744,31 +744,29 @@ function setupExportEvents() {
     const payload = getExportPayload();
     if (!payload) return;
 
-    showToast("Preparando etiquetas térmicas...", "info");
+    showToast("Generando documento para Brother QL-800...", "info");
     btnPrintDirect.disabled = true;
     if (btnPrintPopup) btnPrintPopup.disabled = true;
 
-    // Abrir ventana inmediatamente en el evento de click para que el navegador no la bloquee
-    let printWindow = window.open(
-      "",
-      openInNewTab ? "_blank" : "BrotherPrintWin",
-      openInNewTab ? "" : "width=850,height=650,menubar=no,toolbar=no,status=no"
-    );
-
-    if (printWindow) {
-      printWindow.document.write(`
-        <!DOCTYPE html><html><head><title>Impresión Térmica Brother...</title></head>
-        <body style="font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#0f172a;color:#f8fafc;margin:0;">
-          <div style="text-align:center;padding:20px;">
-            <p style="font-weight:bold;font-size:16px;">Generando etiquetas Brother QL...</p>
-            <p style="font-size:12px;color:#94a3b8;margin-top:6px;">El diálogo de impresión se abrirá automáticamente.</p>
-          </div>
-        </body></html>
-      `);
+    // Si es en nueva pestaña, abrir de inmediato para no perder el contexto de click
+    let printTab = null;
+    if (openInNewTab) {
+      printTab = window.open("", "_blank");
+      if (printTab) {
+        printTab.document.write(`
+          <!DOCTYPE html><html><head><title>Impresión Térmica Brother...</title></head>
+          <body style="font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#0f172a;color:#f8fafc;margin:0;">
+            <div style="text-align:center;padding:20px;">
+              <p style="font-weight:bold;font-size:16px;">Cargando documento térmico...</p>
+              <p style="font-size:12px;color:#94a3b8;margin-top:6px;">Usa Ctrl + P o el ícono de impresora para imprimir en tu Brother QL-800.</p>
+            </div>
+          </body></html>
+        `);
+      }
     }
 
     try {
-      const res = await fetch("/api/print-html", {
+      const res = await fetch("/api/generate-pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -776,22 +774,46 @@ function setupExportEvents() {
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || "Error al preparar documento de impresión térmica");
+        throw new Error(errData.detail || "Error al preparar documento de impresión");
       }
 
-      const htmlContent = await res.text();
+      const blob = await res.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
 
-      if (printWindow) {
-        printWindow.document.open();
-        printWindow.document.write(htmlContent);
-        printWindow.document.close();
-        printWindow.focus();
-        showToast("Diálogo de impresión Brother QL enviado al navegador", "success");
+      if (openInNewTab && printTab) {
+        printTab.location.href = blobUrl;
+        showToast("Documento abierto en pestaña. Imprime directamente con Ctrl + P.", "success");
       } else {
-        showToast("Por favor permita las ventanas emergentes para imprimir", "error");
+        // Impresión directa usando iframe con el PDF en el navegador
+        let printFrame = document.getElementById("pdf-print-direct-frame");
+        if (printFrame) printFrame.remove();
+
+        printFrame = document.createElement("iframe");
+        printFrame.id = "pdf-print-direct-frame";
+        printFrame.style.position = "fixed";
+        printFrame.style.right = "0";
+        printFrame.style.bottom = "0";
+        printFrame.style.width = "0";
+        printFrame.style.height = "0";
+        printFrame.style.border = "none";
+        printFrame.src = blobUrl;
+        document.body.appendChild(printFrame);
+
+        printFrame.onload = function() {
+          setTimeout(() => {
+            try {
+              printFrame.contentWindow.focus();
+              printFrame.contentWindow.print();
+              showToast("Diálogo de impresión Brother QL enviado al navegador", "success");
+            } catch (e) {
+              console.warn("Fallo print iframe, abriendo en ventana:", e);
+              window.open(blobUrl, "_blank");
+            }
+          }, 500);
+        };
       }
     } catch (err) {
-      if (printWindow) printWindow.close();
+      if (printTab) printTab.close();
       showToast(err.message, "error");
     } finally {
       btnPrintDirect.disabled = false;
