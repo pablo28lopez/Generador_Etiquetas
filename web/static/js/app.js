@@ -701,7 +701,7 @@ function updatePreview(item, description) {
   const loader = document.getElementById("preview-loading");
 
   if (loader) loader.classList.remove("hidden");
-  const url = `/api/preview-label?item=${encodeURIComponent(it)}&description=${encodeURIComponent(de)}&size=${selectedLabelSize}`;
+  const url = `/api/preview-label?item=${encodeURIComponent(it)}&description=${encodeURIComponent(de)}&size=${selectedLabelSize}&_t=${Date.now()}`;
 
   const tempImg = new Image();
   tempImg.onload = () => {
@@ -709,6 +709,8 @@ function updatePreview(item, description) {
     if (loader) loader.classList.add("hidden");
   };
   tempImg.onerror = () => {
+    console.warn("Fallo en carga de preview, reintentando directamente en elemento imagen");
+    img.src = url;
     if (loader) loader.classList.add("hidden");
   };
   tempImg.src = url;

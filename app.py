@@ -1,3 +1,4 @@
+import io
 import os
 import re
 import sys
@@ -6,7 +7,7 @@ import threading
 import subprocess
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Tuple
 
 import pandas as pd
 import openpyxl
@@ -80,15 +81,21 @@ def limpiar_nombre_archivo(nombre: str) -> str:
 
 
 def obtener_fuente(nombre_fuente: str, tamano: int) -> ImageFont.ImageFont:
-    """Carga obligatoriamente fuentes de la familia Arial."""
-    is_bold = "bd" in nombre_fuente.lower() or "bold" in nombre_fuente.lower()
-    target_name = "arialbd.ttf" if is_bold else "arial.ttf"
+    """Carga fuentes de la familia Arial y Arial Black."""
+    fn_lower = nombre_fuente.lower()
+    if "black" in fn_lower or "blk" in fn_lower:
+        target_name = "ariblk.ttf"
+    elif "bd" in fn_lower or "bold" in fn_lower:
+        target_name = "arialbd.ttf"
+    else:
+        target_name = "arial.ttf"
 
     candidate_paths = [
         resource_path(nombre_fuente),
         resource_path(target_name),
         resource_path(os.path.join("fonts", target_name)),
         resource_path(os.path.join("web", "fonts", target_name)),
+        os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts", nombre_fuente),
         os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts", target_name),
         target_name,
     ]
@@ -110,38 +117,53 @@ def obtener_fuente(nombre_fuente: str, tamano: int) -> ImageFont.ImageFont:
 # ==========================================
 # GENERACIÓN DE CÓDIGO DE BARRAS Y ETIQUETAS
 # ==========================================
-def generar_codigo_barras(item: str) -> Optional[str]:
-    """Genera imagen de código Code39 recortado al 70% de altura."""
+def generar_imagen_codigo_barras(item: str, target_size: Tuple[int, int] = (595, 120)) -> Image.Image:
+    """Genera la imagen del código de barras (Code39 o Code128 con fallback seguro) en memoria."""
+    item_str = str(item).strip().upper() if item else "012345"
+    if not item_str:
+        item_str = "012345"
+
+    writer = ImageWriter()
+    writer.set_options({"write_text": True})
+
+    bc = None
+    # 1. Probar Code39 (estándar depósito)
     try:
-        item = str(item).strip().upper()
-        item_limpio = limpiar_nombre_archivo(item)
-        if not item_limpio:
-            return None
-
         code39 = barcode.get_barcode_class('code39')
-        writer = ImageWriter()
-        writer.set_options({"write_text": True})
+        bc = code39(item_str, writer=writer, add_checksum=False)
+    except Exception:
+        # 2. Si falla por caracteres especiales (_ # / etc.), usar Code128
+        try:
+            code128 = barcode.get_barcode_class('code128')
+            bc = code128(item_str, writer=writer)
+        except Exception:
+            # 3. Sanitizar caracteres a sólo alfanuméricos
+            clean_str = re.sub(r'[^A-Z0-9]', '', item_str) or "012345"
+            try:
+                code39 = barcode.get_barcode_class('code39')
+                bc = code39(clean_str, writer=writer, add_checksum=False)
+            except Exception:
+                pass
 
-        codigo = code39(item, writer=writer, add_checksum=False)
-        temp_filename = os.path.join(directorio_temp, item_limpio)
-        codigo_path = codigo.save(temp_filename)
+    if bc is not None:
+        try:
+            fp = io.BytesIO()
+            bc.write(fp)
+            fp.seek(0)
+            with Image.open(fp) as raw_img:
+                img_rgb = raw_img.convert("RGB")
+                width, height = img_rgb.size
+                img_cropped = img_rgb.crop((0, 0, width, int(height * 0.70)))
+                return img_cropped.resize(target_size)
+        except Exception as e:
+            print(f"Error procesando imagen de barras para '{item_str}': {e}")
 
-        with Image.open(codigo_path) as img:
-            img_rgb = img.convert("RGB")
-            width, height = img_rgb.size
-            img_cropped = img_rgb.crop((0, 0, width, int(height * 0.70)))
-            img_resized = img_cropped.resize((595, 120))
-
-            jpg_filename = f"{temp_filename}.jpg"
-            img_resized.save(jpg_filename, "JPEG")
-
-        if os.path.exists(codigo_path):
-            os.remove(codigo_path)
-
-        return jpg_filename
-    except Exception as e:
-        print(f"Error generando código de barras para '{item}': {e}")
-        return None
+    # Fallback infalible: código de barras sintético para nunca romper la vista previa
+    dummy = Image.new('RGB', target_size, 'white')
+    d_draw = ImageDraw.Draw(dummy)
+    for x in range(15, target_size[0] - 15, 6):
+        d_draw.line([(x, 10), (x, target_size[1] - 10)], fill='black', width=3)
+    return dummy
 
 
 def crear_imagen_etiqueta(item: str, description: str, size: str = "60x30") -> Optional[Image.Image]:
@@ -149,10 +171,14 @@ def crear_imagen_etiqueta(item: str, description: str, size: str = "60x30") -> O
     Genera la imagen PIL de la etiqueta térmica:
     - 60x30 mm: 600x300 px (Brother DK-11209 62x29 mm / continuo 62mm)
     - 60x95 mm: 1000x620 px (Brother DK-11202 62x100 mm / continuo 62mm)
-    100% Arial, fondo blanco con bordes negros, sin rellenos negros ni sombras 3D.
+    100% Arial / Arial Black para el ID, fondo blanco con bordes limpios.
     """
-    item_text = str(item).upper().strip()
-    desc_text = str(description).upper().strip()
+    item_text = str(item).upper().strip() if item else "012345"
+    if not item_text:
+        item_text = "012345"
+    desc_text = str(description).upper().strip() if description else "EJEMPLO DE ETIQUETA"
+    if not desc_text:
+        desc_text = "EJEMPLO DE ETIQUETA"
 
     if size in ("60x95", "60x90", "62x100"):
         # Formato Grande Horizontal 100x62 mm (1000x620 px)
@@ -196,17 +222,17 @@ def crear_imagen_etiqueta(item: str, description: str, size: str = "60x30") -> O
         hy = pill_top + (pill_bottom - pill_top - (hb[3] - hb[1])) // 2 - 4
         draw.text((hx, hy), header_text, font=font_header, fill='black')
 
-        # 2. Recuadro del Código de Ítem (Fondo NEGRO sólido con texto en BLANCO)
+        # 2. Recuadro del Código de Ítem (Fondo NEGRO sólido con texto en BLANCO en Arial Black)
         code_top = 175
         code_bottom = 320
         draw.rectangle([margin_x, code_top, w - margin_x, code_bottom], fill='black')
 
         it_size = 96
-        font_item = obtener_fuente("arialbd.ttf", it_size)
+        font_item = obtener_fuente("ariblk.ttf", it_size)
         ib = draw.textbbox((0, 0), item_text, font=font_item)
         while (ib[2] - ib[0]) > (w - 2 * margin_x - 40) and it_size > 36:
             it_size -= 4
-            font_item = obtener_fuente("arialbd.ttf", it_size)
+            font_item = obtener_fuente("ariblk.ttf", it_size)
             ib = draw.textbbox((0, 0), item_text, font=font_item)
 
         ix = (w - (ib[2] - ib[0])) // 2
@@ -247,36 +273,34 @@ def crear_imagen_etiqueta(item: str, description: str, size: str = "60x30") -> O
         return label
 
     else:
-        # Formato estándar 60x30 mm (600x300 px)
-        barcode_path = generar_codigo_barras(item_text)
-        if barcode_path is None:
-            return None
+        # Formato estándar 60x30 mm (600x300 px) - 100% Arial sin relleno y en memoria
+        bc_img = generar_imagen_codigo_barras(item_text, target_size=(595, 120))
 
         ancho, alto = 600, 300
         label = Image.new('RGB', (ancho, alto), 'white')
         draw = ImageDraw.Draw(label)
 
-        font_item = obtener_fuente("arialbd.ttf", 80)
+        # ID en Arial Black
+        it_size = 76
+        font_item = obtener_fuente("ariblk.ttf", it_size)
         font_description = obtener_fuente("arial.ttf", 22)
 
         # Pegar código de barras
-        with Image.open(barcode_path) as barcode_image:
-            bc_x = (ancho - barcode_image.width) // 2
-            bc_y = 10
-            label.paste(barcode_image, (bc_x, bc_y))
+        bc_x = (ancho - bc_img.width) // 2
+        bc_y = 10
+        label.paste(bc_img, (bc_x, bc_y))
 
-        # Limpiar temporal de barras
-        if os.path.exists(barcode_path):
-            try:
-                os.remove(barcode_path)
-            except OSError:
-                pass
-
-        # Número de ítem debajo del código
+        # Número de ítem debajo del código (Arial Black con auto-ajuste)
         bbox_item = draw.textbbox((0, 0), item_text, font=font_item)
         item_w = bbox_item[2] - bbox_item[0]
+        while item_w > (ancho - 30) and it_size > 32:
+            it_size -= 4
+            font_item = obtener_fuente("ariblk.ttf", it_size)
+            bbox_item = draw.textbbox((0, 0), item_text, font=font_item)
+            item_w = bbox_item[2] - bbox_item[0]
+
         item_x = (ancho - item_w) // 2
-        item_y = bc_y + 120 - 15
+        item_y = bc_y + 120 - 12
         draw.text((item_x, item_y), item_text, fill='black', font=font_item)
 
         # Descripción debajo del ítem
@@ -291,7 +315,7 @@ def crear_imagen_etiqueta(item: str, description: str, size: str = "60x30") -> O
             desc_w = bbox_desc[2] - bbox_desc[0]
 
         desc_x = (ancho - desc_w) // 2
-        desc_y = item_y + (bbox_item[3] - bbox_item[1]) + 25
+        desc_y = item_y + (bbox_item[3] - bbox_item[1]) + 20
         draw.text((desc_x, desc_y), desc_text, fill='black', font=font_description)
 
         return label
@@ -733,7 +757,8 @@ class AppEscritorio:
         ).pack(anchor="w")
 
         info_text = (
-            "• Papel: 62mm x 100mm (Grande) o 62mm x 29mm (Chica)\n"
+            "• Papel: Seleccionar 62mm (Cinta continua) o 62mm x 100mm\n"
+            "• NO seleccionar 29mm x 90mm si el rollo en la máquina es de 62mm\n"
             "• Márgenes: Ninguno  |  Orientación: Horizontal"
         )
         tk.Label(
@@ -846,10 +871,12 @@ class AppEscritorio:
         tk.Label(f, text="Código:", font=("Segoe UI", 9, "bold"), bg="#ffffff").grid(row=0, column=0, sticky="w", padx=4, pady=2)
         self.entry_man_code = tk.Entry(f, font=("Segoe UI", 9), width=16, bg="#f8fafc")
         self.entry_man_code.grid(row=0, column=1, sticky="w", padx=4, pady=2)
+        self.entry_man_code.bind("<KeyRelease>", lambda e: self._actualizar_preview(self.entry_man_code.get(), self.entry_man_desc.get()))
 
         tk.Label(f, text="Descripción:", font=("Segoe UI", 9, "bold"), bg="#ffffff").grid(row=0, column=2, sticky="w", padx=4, pady=2)
         self.entry_man_desc = tk.Entry(f, font=("Segoe UI", 9), width=32, bg="#f8fafc")
         self.entry_man_desc.grid(row=0, column=3, sticky="we", padx=4, pady=2)
+        self.entry_man_desc.bind("<KeyRelease>", lambda e: self._actualizar_preview(self.entry_man_code.get(), self.entry_man_desc.get()))
 
         tk.Label(f, text="Cant:", font=("Segoe UI", 9, "bold"), bg="#ffffff").grid(row=0, column=4, sticky="w", padx=4, pady=2)
         self.spin_man_qty = tk.Spinbox(f, from_=1, to=9999, width=5, font=("Segoe UI", 9))

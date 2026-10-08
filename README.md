@@ -114,11 +114,13 @@ Este proyecto utiliza ramas estándar y **tags anotados** para registrar el hist
 - **`v1.6.0`**: Medida 60x95 mm, nuevo logotipo institucional y motor de impresión HTML inicial.
 - **`v1.7.0`**: Rediseño definitivo en formato **Horizontal 95 x 60 mm** (950x600 px); logotipo a la izquierda y píldora `DLS DEPOSITO NEUQUEN` al lado; código de ítem central sobre franja negra sólida; cuadro de descripción inferior enmarcado; doble solución de impresión directa web (botón directo en página y botón de apertura en pestaña dedicada Ctrl+P sin bloqueos de navegador); PDF configurado nativamente en Landscape (95.0 x 60.0 mm).
 - **`v1.8.0`**: Paridad total entre versión Web y Escritorio + Compatibilidad Brother QL-800 + Portabilidad 100% independiente.
-- **`v1.9.0`**: Ajuste oficial de diseño e impresión directa web 100% nativa Brother QL-800:
-  - **Encabezado Ampliado:** Texto `DLS DEPOSITO NEUQUEN` aumentado a tamaño de fuente 52 en Arial Bold, llenando armónicamente la píldora superior.
-  - **ID de Ítem de Alto Contraste:** Recuadro central en **fondo negro sólido** con el código en **tipografía blanca** Arial Bold de gran tamaño.
-  - **Impresión Web Directa por Motor PDF:** "Imprimir Directo (Navegador)" y "Abrir Pestaña de Impresión" ahora envían el flujo térmico PDF directamente al visor nativo de Chrome/Edge (Blob URL en iframe / ventana dedicada). Esto comunica la geometría exacta de página (`100x62 mm` / `62x29 mm`) al driver Brother QL-800 sin fallos de conversión HTML.
-  - **Recompilación Desktop:** `GeneradorEtiquetas.exe` y `GeneradorEtiquetas_Portable.zip` actualizados con este diseño en el Escritorio.
+- **`v1.9.0`**: Encabezado ampliado (tamaño 52), recuadro de ID en negro con tipografía blanca, motor de impresión PDF nativo en navegador para Brother QL-800 y binario standalone sincronizado.
+- **`v2.0.0`**: Tipografía Arial Black oficial en ID + Generador de código de barras ultra robusto en memoria + Diagnóstico Brother QL-800:
+  - **ID en Arial Black:** Código de ítem rendered en tipografía oficial `ariblk.ttf` (Arial Black) para máxima legibilidad térmica tanto en etiqueta Grande (60x95 mm) como Chica (60x30 mm).
+  - **Arreglo Definitivo de Vista Previa para Etiqueta Chica:** Procesamiento 100% en memoria RAM (`BytesIO`), soporte automático para Code128 en ítems con caracteres especiales (`_`, `#`, etc.), sanitización alfanumérica y fallback infalible que garantiza que la vista previa NUNCA falle ni se congele.
+  - **Previsualización en Tiempo Real:** Enlace reactivo al escribir código y descripción en la pestaña de carga manual de la aplicación de escritorio.
+  - **Diagnóstico y Prevención de Error de Rollo Brother QL-800:** Explicación y advertencia visual en la interfaz para selección de papel `62mm Cinta continua` evitando bloqueos por discrepancia de rollo (como `29mm x 90mm`).
+  - **Sincronización Total:** Web SPA, `GeneradorEtiquetas.exe` y `GeneradorEtiquetas_Portable.zip` actualizados al 100%.
 
 ### Publicar en tu repositorio de GitHub:
 Para subir este proyecto a tu cuenta de GitHub en la rama **`main`** junto con todos los tags:
