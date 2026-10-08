@@ -113,6 +113,11 @@ Este proyecto utiliza ramas estándar y **tags anotados** para registrar el hist
 - **`v1.5.0`**: Formato institucional oficial de etiqueta con cabecera `DEPOSITO DLS NEUQUEN`, logo DLS Archer, banda negra con código de ítem en blanco y cuadro inferior para descripción; simplificación del botón a 'Grande'.
 - **`v1.6.0`**: Medida 60x95 mm, nuevo logotipo institucional y motor de impresión HTML inicial.
 - **`v1.7.0`**: Rediseño definitivo en formato **Horizontal 95 x 60 mm** (950x600 px); logotipo a la izquierda y píldora `DLS DEPOSITO NEUQUEN` al lado; código de ítem central sobre franja negra sólida; cuadro de descripción inferior enmarcado; doble solución de impresión directa web (botón directo en página y botón de apertura en pestaña dedicada Ctrl+P sin bloqueos de navegador); PDF configurado nativamente en Landscape (95.0 x 60.0 mm).
+- **`v1.8.0`**: Paridad total entre versión Web y Escritorio + Compatibilidad Brother QL-800 + Portabilidad 100% independiente:
+  - **Diseño 100% Arial y Sin Relleno Térmico:** Eliminación de franjas negras sólidas y relieves 3D; fondo blanco con marcos negros limpios, logo institucional, código enmarcado y descripción multilínea con autoescalado.
+  - **Soporte Oficial Brother QL-800:** Adaptación exacta a las medidas de cinta Brother DK (62x100 mm para DK-11202 / rollo continuo 62mm y 62x29 mm para DK-11209). Corrección del selector de tamaño en Chrome/Edge mediante directivas `@page` que evitan que el navegador revierta a A4 o Carta.
+  - **Versión de Escritorio (`app.py` / `GeneradorEtiquetas.exe`):** Actualizada con paridad 100% respecto a la web: buscador en vivo en `DATOS_DEPO.xlsx`, selector de tamaños (60x30 y 60x95), previsualizador en tiempo real, importador Excel, carga manual, alta de nuevos ítems y generación de PDF térmico.
+  - **Distribución Standalone Autónoma:** Compilado como ejecutable portable único `GeneradorEtiquetas.exe` (y paquete `GeneradorEtiquetas_Portable.zip`) que funciona en cualquier PC con Windows sin requerir Python ni tener encendido el servidor localhost.
 
 ### Publicar en tu repositorio de GitHub:
 Para subir este proyecto a tu cuenta de GitHub en la rama **`main`** junto con todos los tags:

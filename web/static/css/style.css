@@ -52,7 +52,7 @@ tr.row-hover:hover {
 
 .preview-box-60x95,
 .preview-box-60x90 {
-  aspect-ratio: 95 / 60;
+  aspect-ratio: 100 / 62;
   max-height: 280px;
 }
 

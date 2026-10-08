@@ -8,9 +8,15 @@ env/
 
 # PyInstaller & Temporales de compilación
 build/
+dist/
 *.spec
 temp/
 *.log
+
+# Archivos de pruebas y temporales
+test_sin_relleno*.png
+sample_sin_relleno*.png
+brother_62x100.png
 
 # Sistema Operativo & IDEs
 .DS_Store

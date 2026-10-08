@@ -29,9 +29,11 @@ echo [2/3] Compilando con PyInstaller e incrustando icono, fuentes y logo...
     --add-data "arialbd.ttf;." ^
     --add-data "icono.ico;." ^
     --add-data "logo.png;." ^
+    --add-data "DATOS_DEPO.xlsx;." ^
     --collect-submodules barcode ^
     --collect-submodules PIL ^
     --collect-submodules fpdf ^
+    --collect-submodules openpyxl ^
     --clean ^
     app.py
 
