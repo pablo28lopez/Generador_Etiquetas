@@ -32,11 +32,10 @@
       <div class="flex items-center gap-3">
         <img src="/static/img/logo.png" alt="Logo" class="h-9 w-auto object-contain" onerror="this.style.display='none'">
         <div class="border-l border-slate-200 pl-3">
-          <h1 class="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
+          <h1 class="text-lg font-bold text-slate-900 tracking-tight">
             Generador de Etiquetas
-            <span class="text-xs bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full border border-emerald-200">Depósito</span>
           </h1>
-          <p class="text-xs text-slate-500">Impresión térmica Code39 (60x30 y 60x95 mm)</p>
+          <p class="text-xs text-slate-500 font-medium">DLS Archer - Depósito Neuquén</p>
         </div>
       </div>
       <div class="flex items-center gap-3">
@@ -244,28 +243,28 @@
           <div class="flex flex-col gap-1.5">
             <label class="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
               <i data-lucide="ruler" class="w-3.5 h-3.5 text-indigo-600"></i>
-              Tamaño de Etiqueta Térmica:
+              Tamaño de Etiqueta Térmica Brother:
             </label>
             <div class="grid grid-cols-2 gap-2">
-              <!-- Botón 1: 60x30 mm (Actual) -->
+              <!-- Botón 1: 62x29 mm Chica (Brother DK-11209 / Cinta 62mm) -->
               <button type="button" id="btn-size-60x30" class="btn-size-toggle active flex items-center gap-2 p-2.5 rounded-lg border-2 border-indigo-600 bg-indigo-50/70 text-indigo-900 transition-all cursor-pointer text-left">
                 <span class="size-check-box w-4 h-4 rounded-full border border-indigo-600 bg-indigo-600 text-white flex items-center justify-center shrink-0">
                   <i data-lucide="check" class="w-3 h-3 stroke-[3]"></i>
                 </span>
                 <div>
-                  <span class="block text-xs font-bold leading-tight">60 x 30 mm</span>
-                  <span class="block text-[10px] text-slate-500 leading-tight">Estándar (DK-11209)</span>
+                  <span class="block text-xs font-bold leading-tight">62 x 29 mm</span>
+                  <span class="block text-[10px] text-slate-500 leading-tight">Chica (DK-11209 / 62mm)</span>
                 </div>
               </button>
 
-              <!-- Botón 2: 60x95 mm -->
+              <!-- Botón 2: 62x100 mm Grande (Brother DK-11202 / Cinta 62mm) -->
               <button type="button" id="btn-size-60x95" class="btn-size-toggle flex items-center gap-2 p-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 transition-all cursor-pointer text-left">
                 <span class="size-check-box w-4 h-4 rounded-full border border-slate-300 bg-white text-transparent flex items-center justify-center shrink-0">
                   <i data-lucide="check" class="w-3 h-3 stroke-[3]"></i>
                 </span>
                 <div>
-                  <span class="block text-xs font-bold leading-tight">60 x 95 mm</span>
-                  <span class="block text-[10px] text-slate-500 leading-tight">Grande (DK-11202)</span>
+                  <span class="block text-xs font-bold leading-tight">62 x 100 mm</span>
+                  <span class="block text-[10px] text-slate-500 leading-tight">Grande (DK-11202 / 62mm)</span>
                 </div>
               </button>
             </div>
@@ -304,7 +303,7 @@
 
             <button id="btn-download-pdf" class="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold py-2.5 px-4 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-all">
               <i data-lucide="download" class="w-4 h-4"></i>
-              <span id="lbl-btn-pdf">Descargar PDF (60x30 mm)</span>
+              <span id="lbl-btn-pdf">Descargar PDF (62x29 mm)</span>
             </button>
 
             <button id="btn-download-zip" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors text-xs">

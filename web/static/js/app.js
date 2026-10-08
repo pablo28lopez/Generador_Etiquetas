@@ -155,7 +155,7 @@ function setLabelSize(size) {
     }
 
     if (badge) {
-      badge.textContent = "60 x 95 mm";
+      badge.textContent = "62 x 100 mm";
       badge.className = "text-[11px] font-mono bg-purple-50 text-purple-700 font-bold px-2 py-0.5 rounded border border-purple-200";
     }
 
@@ -165,7 +165,7 @@ function setLabelSize(size) {
       container.classList.add("preview-box-60x95");
     }
 
-    if (pdfBtnLabel) pdfBtnLabel.textContent = "Descargar PDF (60x95 mm)";
+    if (pdfBtnLabel) pdfBtnLabel.textContent = "Descargar PDF (62x100 mm)";
   } else {
     // 60x30 activo
     if (btn95) {
@@ -187,7 +187,7 @@ function setLabelSize(size) {
     }
 
     if (badge) {
-      badge.textContent = "60 x 30 mm";
+      badge.textContent = "62 x 29 mm";
       badge.className = "text-[11px] font-mono bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded border border-indigo-200";
     }
 
@@ -197,7 +197,7 @@ function setLabelSize(size) {
       container.classList.add("preview-box-60x30");
     }
 
-    if (pdfBtnLabel) pdfBtnLabel.textContent = "Descargar PDF (60x30 mm)";
+    if (pdfBtnLabel) pdfBtnLabel.textContent = "Descargar PDF (62x29 mm)";
   }
 
   if (window.lucide) lucide.createIcons();

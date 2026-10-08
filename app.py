@@ -280,9 +280,9 @@ def crear_imagen_etiqueta(item: str, description: str, size: str = "60x30") -> O
         label = Image.new('RGB', (ancho, alto), 'white')
         draw = ImageDraw.Draw(label)
 
-        # ID en Arial Black
-        it_size = 76
-        font_item = obtener_fuente("ariblk.ttf", it_size)
+        # ID en Arial Bold tamaño 80 original
+        it_size = 80
+        font_item = obtener_fuente("arialbd.ttf", it_size)
         font_description = obtener_fuente("arial.ttf", 22)
 
         # Pegar código de barras
@@ -290,17 +290,17 @@ def crear_imagen_etiqueta(item: str, description: str, size: str = "60x30") -> O
         bc_y = 10
         label.paste(bc_img, (bc_x, bc_y))
 
-        # Número de ítem debajo del código (Arial Black con auto-ajuste)
+        # Número de ítem debajo del código (Arial Bold tamaño 80 original con auto-ajuste)
         bbox_item = draw.textbbox((0, 0), item_text, font=font_item)
         item_w = bbox_item[2] - bbox_item[0]
         while item_w > (ancho - 30) and it_size > 32:
             it_size -= 4
-            font_item = obtener_fuente("ariblk.ttf", it_size)
+            font_item = obtener_fuente("arialbd.ttf", it_size)
             bbox_item = draw.textbbox((0, 0), item_text, font=font_item)
             item_w = bbox_item[2] - bbox_item[0]
 
         item_x = (ancho - item_w) // 2
-        item_y = bc_y + 120 - 12
+        item_y = bc_y + 120 - 15
         draw.text((item_x, item_y), item_text, fill='black', font=font_item)
 
         # Descripción debajo del ítem
@@ -533,9 +533,17 @@ class AppEscritorio:
 
         tk.Label(
             title_box,
-            text="Generador de Etiquetas de Depósito",
+            text="Generador de Etiquetas",
             font=("Segoe UI", 13, "bold"),
             fg="#f8fafc",
+            bg="#0f172a"
+        ).pack(anchor="w")
+
+        tk.Label(
+            title_box,
+            text="DLS Archer - Depósito Neuquén",
+            font=("Segoe UI", 9, "bold"),
+            fg="#38bdf8",
             bg="#0f172a"
         ).pack(anchor="w")
 
@@ -675,7 +683,7 @@ class AppEscritorio:
 
         r1 = tk.Radiobutton(
             size_box,
-            text="60 x 30 mm  (Estándar DK-11209 / Continuo 62mm)",
+            text="62 x 29 mm  (Chica - Brother DK-11209 / Cinta 62mm)",
             variable=self.tamano_actual,
             value="60x30",
             command=self._actualizar_preview,
@@ -688,7 +696,7 @@ class AppEscritorio:
 
         r2 = tk.Radiobutton(
             size_box,
-            text="60 x 95 mm  (Grande DK-11202 / Continuo 62mm)",
+            text="62 x 100 mm  (Grande - Brother DK-11202 / Cinta 62mm)",
             variable=self.tamano_actual,
             value="60x95",
             command=self._actualizar_preview,

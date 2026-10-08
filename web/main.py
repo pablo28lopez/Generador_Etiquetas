@@ -269,16 +269,16 @@ def create_label_image(item: str, description: str, size: str = "60x30") -> Opti
         return label
 
     else:
-        # Formato estándar 60x30 mm / 62x29 mm (600x300 px) - 100% Arial sin relleno
+        # Formato estándar 60x30 mm / 62x29 mm (600x300 px) - 100% Arial sin relleno (tamaño y fuente original)
         bc_img = generate_barcode_image(item_text, target_size=(595, 120))
 
         ancho, alto = 600, 300
         label = Image.new('RGB', (ancho, alto), 'white')
         draw = ImageDraw.Draw(label)
 
-        # ID en Arial Black
-        it_size = 76
-        font_item = get_font("ariblk.ttf", it_size)
+        # ID en Arial Bold tamaño 80 original
+        it_size = 80
+        font_item = get_font("arialbd.ttf", it_size)
         font_description = get_font("arial.ttf", 22)
 
         # Pegar código de barras
@@ -286,17 +286,17 @@ def create_label_image(item: str, description: str, size: str = "60x30") -> Opti
         bc_y = 10
         label.paste(bc_img, (bc_x, bc_y))
 
-        # Número de ítem debajo del código (Arial Black, negro sólido con auto-ajuste de ancho)
+        # Número de ítem debajo del código (Arial Bold tamaño 80 original)
         bbox_item = draw.textbbox((0, 0), item_text, font=font_item)
         item_w = bbox_item[2] - bbox_item[0]
         while item_w > (ancho - 30) and it_size > 32:
             it_size -= 4
-            font_item = get_font("ariblk.ttf", it_size)
+            font_item = get_font("arialbd.ttf", it_size)
             bbox_item = draw.textbbox((0, 0), item_text, font=font_item)
             item_w = bbox_item[2] - bbox_item[0]
 
         item_x = (ancho - item_w) // 2
-        item_y = bc_y + 120 - 12
+        item_y = bc_y + 120 - 15
         draw.text((item_x, item_y), item_text, fill='black', font=font_item)
 
         # Descripción debajo del ítem (Arial, negro sólido)
