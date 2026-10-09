@@ -121,6 +121,11 @@ Este proyecto utiliza ramas estándar y **tags anotados** para registrar el hist
   - **Etiquetas Chicas Originales:** Restaurado el tamaño y fuente original (`Arial Bold` tamaño 80 pt en ID y `Arial` 22 pt en descripción), reservando Arial Black exclusivamente para las etiquetas Grandes.
   - **Nomenclatura Oficial Brother:** Botones y selectores ahora reflejan la denominación exacta de la impresora Brother: `62 x 29 mm (Chica - DK-11209 / Cinta 62mm)` y `62 x 100 mm (Grande - DK-11202 / Cinta 62mm)`.
   - **Distribución Actualizada:** Web y ejecutables de escritorio sincronizados en `Proyecto DEPO`.
+- **`v2.2.0`**: ID en Arial Black maximizado y centrado milimétrico + Fix descarga PDF 1-clic + Resolución mismatch rollo Brother QL-800:
+  - **ID Maximizado y Centrado:** Algoritmo dinámico que escala la fuente Arial Black hasta 150 pt con compensación de offsets verticales de Pillow, logrando márgenes perfectamente simétricos arriba/abajo (18 px) y ocupando el ancho completo del recuadro negro.
+  - **Corrección Descarga PDF:** Soporte para descargar directamente la previsualización activa sin requerir selección previa en la tabla, y eliminación de revocación prematura de Blob URLs en navegadores Chromium.
+  - **Diagnóstico y Guía Brother QL-800:** Explicación y resolución del error de coincidencia de rollo mediante ajuste de tamaño de papel a `62mm` en el diálogo de impresión de Chrome.
+  - **Sincronización Completa:** Generación de nuevo ejecutable `GeneradorEtiquetas.exe` y archivo ZIP portable listos para distribución independiente.
 
 ### Publicar en tu repositorio de GitHub:
 Para subir este proyecto a tu cuenta de GitHub en la rama **`main`** junto con todos los tags:

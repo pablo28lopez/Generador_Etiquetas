@@ -724,16 +724,18 @@ function setupExportEvents() {
   const btnDownloadZip = document.getElementById("btn-download-zip");
 
   function getExportPayload() {
-    const selected = itemsState.filter(i => i.selected && i.qty > 0);
+    let selected = itemsState.filter(i => i.selected && i.qty > 0);
     if (selected.length === 0) {
-      showToast("Selecciona al menos un ítem con cantidad mayor a 0", "error");
-      return null;
+      // Si la cola está vacía o no hay selección, exportar el ítem en previsualización
+      const it = lastPreviewItem || "012345";
+      const de = lastPreviewDesc || "EJEMPLO DE ETIQUETA";
+      selected = [{ item: it, description: de, qty: 1 }];
     }
     return {
       items: selected.map(i => ({
         item: i.item,
         description: i.description,
-        qty: i.qty
+        qty: i.qty || 1
       })),
       filename: loadedFileName || "etiquetas",
       size: selectedLabelSize,
@@ -746,7 +748,7 @@ function setupExportEvents() {
     const payload = getExportPayload();
     if (!payload) return;
 
-    showToast("Generando documento para Brother QL-800...", "info");
+    showToast("Preparando documento térmico Brother...", "info");
     btnPrintDirect.disabled = true;
     if (btnPrintPopup) btnPrintPopup.disabled = true;
 
@@ -760,7 +762,7 @@ function setupExportEvents() {
           <body style="font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#0f172a;color:#f8fafc;margin:0;">
             <div style="text-align:center;padding:20px;">
               <p style="font-weight:bold;font-size:16px;">Cargando documento térmico...</p>
-              <p style="font-size:12px;color:#94a3b8;margin-top:6px;">Usa Ctrl + P o el ícono de impresora para imprimir en tu Brother QL-800.</p>
+              <p style="font-size:12px;color:#94a3b8;margin-top:6px;">Usa Ctrl + P y verifica que el papel esté en <b>62mm</b> (Cinta continua).</p>
             </div>
           </body></html>
         `);
@@ -784,7 +786,7 @@ function setupExportEvents() {
 
       if (openInNewTab && printTab) {
         printTab.location.href = blobUrl;
-        showToast("Documento abierto en pestaña. Imprime directamente con Ctrl + P.", "success");
+        showToast("Documento abierto. Recuerda seleccionar Papel: 62mm en Chrome", "success");
       } else {
         // Impresión directa usando iframe con el PDF en el navegador
         let printFrame = document.getElementById("pdf-print-direct-frame");
@@ -806,7 +808,7 @@ function setupExportEvents() {
             try {
               printFrame.contentWindow.focus();
               printFrame.contentWindow.print();
-              showToast("Diálogo de impresión Brother QL enviado al navegador", "success");
+              showToast("Diálogo enviado. Si la máquina pide rollo, cambia papel a 62mm", "success");
             } catch (e) {
               console.warn("Fallo print iframe, abriendo en ventana:", e);
               window.open(blobUrl, "_blank");
@@ -832,7 +834,7 @@ function setupExportEvents() {
     const payload = getExportPayload();
     if (!payload) return;
 
-    showToast("Descargando PDF...", "info");
+    showToast("Generando y descargando PDF...", "info");
     btnDownloadPdf.disabled = true;
 
     try {
@@ -842,17 +844,23 @@ function setupExportEvents() {
         body: JSON.stringify(payload)
       });
 
-      if (!res.ok) throw new Error("Error al generar el PDF");
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.detail || "Error al generar el PDF");
+      }
 
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
+      a.style.display = "none";
       a.href = url;
       a.download = `${payload.filename || "etiquetas"}_${payload.size}.pdf`;
       document.body.appendChild(a);
       a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
+      setTimeout(() => {
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      }, 10000);
 
       showToast("PDF descargado con éxito", "success");
     } catch (err) {
@@ -876,17 +884,23 @@ function setupExportEvents() {
         body: JSON.stringify(payload)
       });
 
-      if (!res.ok) throw new Error("Error al generar ZIP");
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.detail || "Error al generar ZIP");
+      }
 
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
+      a.style.display = "none";
       a.href = url;
       a.download = `${payload.filename || "etiquetas"}.zip`;
       document.body.appendChild(a);
       a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
+      setTimeout(() => {
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      }, 10000);
 
       showToast("Archivo ZIP descargado", "success");
     } catch (err) {

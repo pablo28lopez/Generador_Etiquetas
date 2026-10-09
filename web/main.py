@@ -21,7 +21,7 @@ from fpdf import FPDF
 app = FastAPI(
     title="Generador de Etiquetas de Depósito",
     description="API y SPA / PWA para generar etiquetas con código de barras e impresión térmica en PDF",
-    version="2.1.0"
+    version="2.2.0"
 )
 
 # Rutas base
@@ -218,21 +218,29 @@ def create_label_image(item: str, description: str, size: str = "60x30") -> Opti
         hy = pill_top + (pill_bottom - pill_top - (hb[3] - hb[1])) // 2 - 4
         draw.text((hx, hy), header_text, font=font_header, fill='black')
 
-        # 2. Recuadro del Código de Ítem (Fondo NEGRO sólido con texto en BLANCO en Arial Black)
+        # 2. Recuadro del Código de Ítem (Fondo NEGRO sólido con texto en BLANCO en Arial Black maximizado y perfectamente centrado)
         code_top = 175
         code_bottom = 320
+        box_h = code_bottom - code_top
+        box_w = w - 2 * margin_x
         draw.rectangle([margin_x, code_top, w - margin_x, code_bottom], fill='black')
 
-        it_size = 96
+        # Buscar el mayor tamaño de fuente posible dejando el margen mínimo (14-18 px)
+        it_size = 150
         font_item = get_font("ariblk.ttf", it_size)
         ib = draw.textbbox((0, 0), item_text, font=font_item)
-        while (ib[2] - ib[0]) > (w - 2 * margin_x - 40) and it_size > 36:
-            it_size -= 4
+        tw = ib[2] - ib[0]
+        th = ib[3] - ib[1]
+        while (tw > (box_w - 28) or th > (box_h - 22)) and it_size > 36:
+            it_size -= 2
             font_item = get_font("ariblk.ttf", it_size)
             ib = draw.textbbox((0, 0), item_text, font=font_item)
+            tw = ib[2] - ib[0]
+            th = ib[3] - ib[1]
 
-        ix = (w - (ib[2] - ib[0])) // 2
-        iy = code_top + (code_bottom - code_top - (ib[3] - ib[1])) // 2 - 5
+        # Centrado matemático exacto compensando offsets internos de la fuente (márgenes idénticos arriba/abajo y lados)
+        ix = margin_x + (box_w - tw) // 2 - ib[0]
+        iy = code_top + (box_h - th) // 2 - ib[1]
         draw.text((ix, iy), item_text, font=font_item, fill='white')
 
         # 3. Cuadro inferior con Descripción Enmarcado (SIN RELLENO - Fondo blanco, borde negro, texto Arial Bold)
@@ -349,7 +357,7 @@ def health():
     return {
         "status": "ok",
         "app": "Generador de Etiquetas Web",
-        "version": "2.1.0",
+        "version": app.version,
         "catalog_loaded": len(catalog_cache) > 0,
         "total_catalog_items": len(catalog_cache)
     }

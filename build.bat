@@ -27,6 +27,7 @@ echo [2/3] Compilando con PyInstaller e incrustando icono, fuentes y logo...
     --icon "icono.ico" ^
     --add-data "arial.ttf;." ^
     --add-data "arialbd.ttf;." ^
+    --add-data "ariblk.ttf;." ^
     --add-data "icono.ico;." ^
     --add-data "logo.png;." ^
     --add-data "DATOS_DEPO.xlsx;." ^
