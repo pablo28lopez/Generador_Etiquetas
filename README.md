@@ -126,10 +126,12 @@ Este proyecto utiliza ramas estándar y **tags anotados** para registrar el hist
   - **Corrección Descarga PDF:** Soporte para descargar directamente la previsualización activa sin requerir selección previa en la tabla, y eliminación de revocación prematura de Blob URLs en navegadores Chromium.
   - **Diagnóstico y Guía Brother QL-800:** Explicación y resolución del error de coincidencia de rollo mediante ajuste de tamaño de papel a `62mm` en el diálogo de impresión de Chrome.
   - **Sincronización Completa:** Generación de nuevo ejecutable `GeneradorEtiquetas.exe` y archivo ZIP portable listos para distribución independiente.
-- **`v2.3.0`**: Etiqueta chica 62x29 mm 100% centrada y márgenes mínimos + Blindaje códigos de barra en Portable + Seteo automático Chrome/Edge para Brother QL-800:
-  - **Etiqueta Chica 62x29 mm Totalmente Centrada:** Rediseño integral de proporciones (620x290 px). Código de barras, ID (Arial Bold auto-ajustable) y descripción (Arial multilínea protegida) matemáticamente centrados horizontal y verticalmente, logrando márgenes mínimos simétricos en los 4 costados.
-  - **Códigos de Barra Robustos en Portable (.exe):** Eliminación de dependencia de fuentes externas de python-barcode, enlace directo a Arial y recolección de datos (`--collect-data barcode`). Generación de barras 100% nítidas y legibles por lectores térmicos sin sustitución por líneas sintéticas.
-  - **Seteo Automático según Navegador (Chrome / Edge):** Detección dinámica del navegador web en la interfaz. Motor de impresión HTML térmico con directivas `@page { size: 62mm 29mm; }` y `@page { size: 100mm 62mm; }` que configura automáticamente las dimensiones en el diálogo de impresión de Chromium sin conflictos de rollo.
+- **`v2.3.0`**: Etiqueta chica 62x29 mm 100% centrada y márgenes mínimos + Blindaje códigos de barra en Portable + Seteo automático Chrome/Edge para Brother QL-800.
+- **`v2.4.0`**: Etiqueta chica con márgenes mínimos absolutos + Solución permanente para driver Brother QL-800:
+  - **Márgenes Mínimos Absolutos en Etiqueta Chica (62x29 mm):** Código de barras maximizado a 608 px (98% del ancho del rollo de 62mm), código de ítem en Arial Bold 94 pt con auto-escalado y compensación de glifos, descripción en Arial 28 pt. Márgenes superior/inferior reducidos a solo 1.2 mm (12 px) y laterales a 1.7 mm (17 px) totalmente simétricos.
+  - **Solución Definitiva Driver Brother QL-800:** Script automatizado `configurar_impresora_brother.bat` para fijar la medida de 62mm de manera permanente en Windows (`rundll32 printui.dll`), eliminando para siempre la necesidad de cambiar la medida manualmente en el driver.
+  - **Impresión Web Directa Blindada:** Montaje optimizado en iframe fuera de pantalla (620x290 px) con decodificación de imagen previa para evitar bloqueos y diálogos fallidos en Google Chrome y Microsoft Edge.
+  - **Paridad Total y Binarios:** Ejecutable `GeneradorEtiquetas.exe` y ZIP portable actualizados en `Proyecto DEPO`.
 
 ### Publicar en tu repositorio de GitHub:
 Para subir este proyecto a tu cuenta de GitHub en la rama **`main`** junto con todos los tags:

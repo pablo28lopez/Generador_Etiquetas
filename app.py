@@ -311,46 +311,46 @@ def crear_imagen_etiqueta(item: str, description: str, size: str = "60x30") -> O
         label = Image.new('RGB', (ancho, alto), 'white')
         draw = ImageDraw.Draw(label)
 
-        # 1. Código de Ítem en Arial Bold original (tamaño base 84 pt con auto-ajuste)
-        it_size = 84
+        # 1. Código de Ítem en Arial Bold maximizado (tamaño base 94 pt con auto-ajuste rápido)
+        it_size = 94
         font_item = obtener_fuente("arialbd.ttf", it_size)
         ib = draw.textbbox((0, 0), item_text, font=font_item)
         iw = ib[2] - ib[0]
-        while iw > (ancho - 30) and it_size > 36:
+        while iw > (ancho - 14) and it_size > 36:
             it_size -= 2
             font_item = obtener_fuente("arialbd.ttf", it_size)
             ib = draw.textbbox((0, 0), item_text, font=font_item)
             iw = ib[2] - ib[0]
         ih = ib[3] - ib[1]
 
-        # 2. Descripción en Arial Regular (auto-ajuste de tamaño y multilínea si es extensa)
-        desc_size = 26
+        # 2. Descripción en Arial Regular maximizada (tamaño base 28 pt)
+        desc_size = 28
         font_desc = obtener_fuente("arial.ttf", desc_size)
         db = draw.textbbox((0, 0), desc_text, font=font_desc)
         dw = db[2] - db[0]
         lines = [desc_text]
-        if dw > (ancho - 24):
-            desc_size = 22
+        if dw > (ancho - 14):
+            desc_size = 24
             font_desc = obtener_fuente("arial.ttf", desc_size)
             db = draw.textbbox((0, 0), desc_text, font=font_desc)
             dw = db[2] - db[0]
-            if dw > (ancho - 24):
-                desc_size = 20
+            if dw > (ancho - 14):
+                desc_size = 21
                 font_desc = obtener_fuente("arial.ttf", desc_size)
-                lines = textwrap.wrap(desc_text, width=42)[:2]
+                lines = textwrap.wrap(desc_text, width=44)[:2]
 
         line_bboxes = [draw.textbbox((0, 0), l, font=font_desc) for l in lines]
         line_heights = [b[3] - b[1] for b in line_bboxes]
-        line_sp = 4
+        line_sp = 3
         total_desc_ink_h = sum(line_heights) + (len(lines) - 1) * line_sp
 
-        # 3. Código de barras nítido y balance de márgenes verticales mínimos
-        gap1 = 12
-        gap2 = 10
-        target_margin = 16
+        # 3. Código de barras ultra nítido ocupando el ancho completo (608 px de 620 px)
+        gap1 = 7
+        gap2 = 5
+        target_margin = 6
         available_bc_h = alto - (2 * target_margin) - (gap1 + ih + gap2 + total_desc_ink_h)
-        bc_h = max(80, min(140, available_bc_h))
-        bc_w = min(560, ancho - 24)
+        bc_h = max(95, min(165, available_bc_h))
+        bc_w = min(608, ancho - 12)
 
         bc_img = generar_imagen_codigo_barras(item_text, target_size=(bc_w, bc_h))
 
@@ -362,7 +362,7 @@ def crear_imagen_etiqueta(item: str, description: str, size: str = "60x30") -> O
         bc_x = (ancho - bc_w) // 2
         label.paste(bc_img, (bc_x, bc_y))
 
-        # Texto del Ítem centrado matemáticamente (compensando offsets internos de la fuente)
+        # Texto del Ítem centrado matemáticamente
         item_y = bc_y + bc_h + gap1 - ib[1]
         item_x = (ancho - iw) // 2 - ib[0]
         draw.text((item_x, item_y), item_text, font=font_item, fill='black')

@@ -818,10 +818,12 @@ function setupExportEvents() {
         printFrame = document.createElement("iframe");
         printFrame.id = "thermal-print-direct-frame";
         printFrame.style.position = "fixed";
-        printFrame.style.right = "0";
-        printFrame.style.bottom = "0";
-        printFrame.style.width = "0";
-        printFrame.style.height = "0";
+        printFrame.style.left = "-9999px";
+        printFrame.style.top = "-9999px";
+        printFrame.style.width = "620px";
+        printFrame.style.height = "290px";
+        printFrame.style.opacity = "0";
+        printFrame.style.pointerEvents = "none";
         printFrame.style.border = "none";
         document.body.appendChild(printFrame);
 
@@ -829,22 +831,35 @@ function setupExportEvents() {
         printFrame.contentDocument.write(htmlContent);
         printFrame.contentDocument.close();
 
-        // Esperar render de imágenes del iframe y lanzar impresión
-        setTimeout(() => {
-          try {
-            printFrame.contentWindow.focus();
-            printFrame.contentWindow.print();
-            showToast(`Diálogo enviado. Seteo automático (${labelNom}) aplicado a ${browserName}`, "success");
-          } catch (e) {
-            console.warn("Fallo print iframe, abriendo en pestaña:", e);
-            const fallbackWin = window.open("", "_blank");
-            if (fallbackWin) {
-              fallbackWin.document.open();
-              fallbackWin.document.write(htmlContent);
-              fallbackWin.document.close();
+        // Esperar render de imágenes del iframe y lanzar diálogo de impresión
+        const doc = printFrame.contentDocument;
+        const images = Array.from(doc.images);
+        const decodePromises = images.map(img => {
+          if (img.complete && img.naturalHeight !== 0) return Promise.resolve();
+          if (img.decode) return img.decode().catch(() => {});
+          return new Promise(resolve => {
+            img.onload = resolve;
+            img.onerror = resolve;
+          });
+        });
+
+        Promise.all(decodePromises).then(() => {
+          setTimeout(() => {
+            try {
+              printFrame.contentWindow.focus();
+              printFrame.contentWindow.print();
+              showToast(`Diálogo enviado. Seteo automático (${labelNom}) aplicado a ${browserName}`, "success");
+            } catch (e) {
+              console.warn("Fallo print iframe, abriendo en pestaña:", e);
+              const fallbackWin = window.open("", "_blank");
+              if (fallbackWin) {
+                fallbackWin.document.open();
+                fallbackWin.document.write(htmlContent);
+                fallbackWin.document.close();
+              }
             }
-          }
-        }, 400);
+          }, 250);
+        });
       }
     } catch (err) {
       if (printTab) printTab.close();
