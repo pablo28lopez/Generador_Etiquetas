@@ -126,6 +126,10 @@ Este proyecto utiliza ramas estándar y **tags anotados** para registrar el hist
   - **Corrección Descarga PDF:** Soporte para descargar directamente la previsualización activa sin requerir selección previa en la tabla, y eliminación de revocación prematura de Blob URLs en navegadores Chromium.
   - **Diagnóstico y Guía Brother QL-800:** Explicación y resolución del error de coincidencia de rollo mediante ajuste de tamaño de papel a `62mm` en el diálogo de impresión de Chrome.
   - **Sincronización Completa:** Generación de nuevo ejecutable `GeneradorEtiquetas.exe` y archivo ZIP portable listos para distribución independiente.
+- **`v2.3.0`**: Etiqueta chica 62x29 mm 100% centrada y márgenes mínimos + Blindaje códigos de barra en Portable + Seteo automático Chrome/Edge para Brother QL-800:
+  - **Etiqueta Chica 62x29 mm Totalmente Centrada:** Rediseño integral de proporciones (620x290 px). Código de barras, ID (Arial Bold auto-ajustable) y descripción (Arial multilínea protegida) matemáticamente centrados horizontal y verticalmente, logrando márgenes mínimos simétricos en los 4 costados.
+  - **Códigos de Barra Robustos en Portable (.exe):** Eliminación de dependencia de fuentes externas de python-barcode, enlace directo a Arial y recolección de datos (`--collect-data barcode`). Generación de barras 100% nítidas y legibles por lectores térmicos sin sustitución por líneas sintéticas.
+  - **Seteo Automático según Navegador (Chrome / Edge):** Detección dinámica del navegador web en la interfaz. Motor de impresión HTML térmico con directivas `@page { size: 62mm 29mm; }` y `@page { size: 100mm 62mm; }` que configura automáticamente las dimensiones en el diálogo de impresión de Chromium sin conflictos de rollo.
 
 ### Publicar en tu repositorio de GitHub:
 Para subir este proyecto a tu cuenta de GitHub en la rama **`main`** junto con todos los tags:

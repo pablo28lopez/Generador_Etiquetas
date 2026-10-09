@@ -31,6 +31,7 @@ echo [2/3] Compilando con PyInstaller e incrustando icono, fuentes y logo...
     --add-data "icono.ico;." ^
     --add-data "logo.png;." ^
     --add-data "DATOS_DEPO.xlsx;." ^
+    --collect-data barcode ^
     --collect-submodules barcode ^
     --collect-submodules PIL ^
     --collect-submodules fpdf ^

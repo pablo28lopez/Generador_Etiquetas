@@ -12,6 +12,7 @@ let lastPreviewDesc = "EJEMPLO DE ETIQUETA";
 // Inicialización
 document.addEventListener("DOMContentLoaded", () => {
   if (window.lucide) lucide.createIcons();
+  initBrowserDetection();
   setupPWA();
   setupTabs();
   setupSizeSelector();
@@ -23,6 +24,22 @@ document.addEventListener("DOMContentLoaded", () => {
   setupExportEvents();
   loadCatalogStats();
 });
+
+// Detección y Seteo Automático según Navegador (Chrome / Edge)
+function initBrowserDetection() {
+  const isEdge = navigator.userAgent.includes("Edg/");
+  const isChrome = navigator.userAgent.includes("Chrome") && !isEdge;
+  const bText = document.getElementById("browser-detected-text");
+  if (bText) {
+    if (isEdge) {
+      bText.innerHTML = `<b>Microsoft Edge detectado</b>: Seteo automático Brother QL activo`;
+    } else if (isChrome) {
+      bText.innerHTML = `<b>Google Chrome detectado</b>: Seteo automático Brother QL activo`;
+    } else {
+      bText.innerHTML = `Seteo Brother QL-800: 62x29mm / 62x100mm activo`;
+    }
+  }
+}
 
 // Configuración PWA
 function setupPWA() {
@@ -748,7 +765,12 @@ function setupExportEvents() {
     const payload = getExportPayload();
     if (!payload) return;
 
-    showToast("Preparando documento térmico Brother...", "info");
+    const isEdge = navigator.userAgent.includes("Edg/");
+    const isChrome = navigator.userAgent.includes("Chrome") && !isEdge;
+    const browserName = isEdge ? "Microsoft Edge" : isChrome ? "Google Chrome" : "Navegador Web";
+    const labelNom = (selectedLabelSize === "60x95" || selectedLabelSize === "60x90") ? "62mm x 100mm" : "62mm x 29mm";
+
+    showToast(`Preparando impresión térmica (${browserName} - ${labelNom})...`, "info");
     btnPrintDirect.disabled = true;
     if (btnPrintPopup) btnPrintPopup.disabled = true;
 
@@ -758,11 +780,11 @@ function setupExportEvents() {
       printTab = window.open("", "_blank");
       if (printTab) {
         printTab.document.write(`
-          <!DOCTYPE html><html><head><title>Impresión Térmica Brother...</title></head>
+          <!DOCTYPE html><html><head><title>Impresión Térmica Brother - ${labelNom}</title></head>
           <body style="font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#0f172a;color:#f8fafc;margin:0;">
-            <div style="text-align:center;padding:20px;">
-              <p style="font-weight:bold;font-size:16px;">Cargando documento térmico...</p>
-              <p style="font-size:12px;color:#94a3b8;margin-top:6px;">Usa Ctrl + P y verifica que el papel esté en <b>62mm</b> (Cinta continua).</p>
+            <div style="text-align:center;padding:24px;">
+              <p style="font-weight:bold;font-size:16px;">Configurando impresión térmica Brother QL-800...</p>
+              <p style="font-size:13px;color:#38bdf8;margin-top:6px;"><b>${browserName}</b>: Medida ${labelNom}</p>
             </div>
           </body></html>
         `);
@@ -770,7 +792,7 @@ function setupExportEvents() {
     }
 
     try {
-      const res = await fetch("/api/generate-pdf", {
+      const res = await fetch("/api/print-html", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -778,43 +800,51 @@ function setupExportEvents() {
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || "Error al preparar documento de impresión");
+        throw new Error(errData.detail || "Error al preparar documento de impresión térmica");
       }
 
-      const blob = await res.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
+      const htmlContent = await res.text();
 
       if (openInNewTab && printTab) {
-        printTab.location.href = blobUrl;
-        showToast("Documento abierto. Recuerda seleccionar Papel: 62mm en Chrome", "success");
+        printTab.document.open();
+        printTab.document.write(htmlContent);
+        printTab.document.close();
+        showToast(`Documento listo con seteo automático (${labelNom}) para ${browserName}`, "success");
       } else {
-        // Impresión directa usando iframe con el PDF en el navegador
-        let printFrame = document.getElementById("pdf-print-direct-frame");
+        // Impresión directa usando iframe con HTML que pasa el CSS @page size a Chrome/Edge
+        let printFrame = document.getElementById("thermal-print-direct-frame");
         if (printFrame) printFrame.remove();
 
         printFrame = document.createElement("iframe");
-        printFrame.id = "pdf-print-direct-frame";
+        printFrame.id = "thermal-print-direct-frame";
         printFrame.style.position = "fixed";
         printFrame.style.right = "0";
         printFrame.style.bottom = "0";
         printFrame.style.width = "0";
         printFrame.style.height = "0";
         printFrame.style.border = "none";
-        printFrame.src = blobUrl;
         document.body.appendChild(printFrame);
 
-        printFrame.onload = function() {
-          setTimeout(() => {
-            try {
-              printFrame.contentWindow.focus();
-              printFrame.contentWindow.print();
-              showToast("Diálogo enviado. Si la máquina pide rollo, cambia papel a 62mm", "success");
-            } catch (e) {
-              console.warn("Fallo print iframe, abriendo en ventana:", e);
-              window.open(blobUrl, "_blank");
+        printFrame.contentDocument.open();
+        printFrame.contentDocument.write(htmlContent);
+        printFrame.contentDocument.close();
+
+        // Esperar render de imágenes del iframe y lanzar impresión
+        setTimeout(() => {
+          try {
+            printFrame.contentWindow.focus();
+            printFrame.contentWindow.print();
+            showToast(`Diálogo enviado. Seteo automático (${labelNom}) aplicado a ${browserName}`, "success");
+          } catch (e) {
+            console.warn("Fallo print iframe, abriendo en pestaña:", e);
+            const fallbackWin = window.open("", "_blank");
+            if (fallbackWin) {
+              fallbackWin.document.open();
+              fallbackWin.document.write(htmlContent);
+              fallbackWin.document.close();
             }
-          }, 500);
-        };
+          }
+        }, 400);
       }
     } catch (err) {
       if (printTab) printTab.close();

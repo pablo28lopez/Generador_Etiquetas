@@ -14,14 +14,14 @@ import pandas as pd
 import openpyxl
 import barcode
 from barcode.writer import ImageWriter
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 from fpdf import FPDF
 
 # Inicializar FastAPI
 app = FastAPI(
     title="Generador de Etiquetas de Depósito",
     description="API y SPA / PWA para generar etiquetas con código de barras e impresión térmica en PDF",
-    version="2.2.0"
+    version="2.3.0"
 )
 
 # Rutas base
@@ -114,14 +114,32 @@ def clean_filename(name: str) -> str:
     return re.sub(r'[^A-Za-z0-9_-]', '_', str(name).strip())
 
 
-def generate_barcode_image(item: str, target_size: Tuple[int, int] = (595, 120)) -> Image.Image:
-    """Genera la imagen del código de barras (Code39 o Code128 con fallback seguro) recortado al 70% de altura."""
+def get_font_path(name: str = "arial.ttf") -> Optional[str]:
+    """Obtiene la ruta física del archivo de fuente."""
+    candidate_paths = [
+        os.path.join(FONTS_DIR, name),
+        os.path.join(STATIC_DIR, "fonts", name),
+        os.path.join(BASE_DIR, name),
+        os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts", name),
+        name
+    ]
+    for p in candidate_paths:
+        if os.path.exists(p):
+            return p
+    return None
+
+
+def generate_barcode_image(item: str, target_size: Tuple[int, int] = (560, 110)) -> Image.Image:
+    """Genera la imagen del código de barras (Code39 o Code128) 100% nítida y blindada en memoria."""
     item_str = str(item).strip().upper() if item else "012345"
     if not item_str:
         item_str = "012345"
 
     writer = ImageWriter()
-    writer.set_options({"write_text": True})
+    writer._callbacks["paint_text"] = None
+    fp_arial = get_font_path("arial.ttf")
+    if fp_arial and os.path.exists(fp_arial):
+        writer.font_path = fp_arial
 
     bc = None
     # 1. Probar Code39 (estándar depósito)
@@ -145,17 +163,22 @@ def generate_barcode_image(item: str, target_size: Tuple[int, int] = (595, 120))
     if bc is not None:
         try:
             fp = io.BytesIO()
-            bc.write(fp)
+            bc.write(fp, options={"write_text": False})
             fp.seek(0)
             with Image.open(fp) as raw_img:
-                img_rgb = raw_img.convert("RGB")
-                width, height = img_rgb.size
-                img_cropped = img_rgb.crop((0, 0, width, int(height * 0.70)))
-                return img_cropped.resize(target_size)
+                raw_l = raw_img.convert("L")
+                inv = ImageOps.invert(raw_l)
+                bbox = inv.getbbox()
+                if bbox:
+                    qz = 8
+                    bars = raw_l.crop((max(0, bbox[0] - qz), bbox[1], min(raw_l.width, bbox[2] + qz), bbox[3]))
+                else:
+                    bars = raw_l
+                return bars.resize(target_size, Image.Resampling.NEAREST).convert("RGB")
         except Exception as e:
             print(f"Error procesando imagen de barras para '{item_str}': {e}")
 
-    # Fallback infalible: código de barras sintético para nunca romper la vista previa
+    # Fallback infalible: código de barras sintético
     dummy = Image.new('RGB', target_size, 'white')
     d_draw = ImageDraw.Draw(dummy)
     for x in range(15, target_size[0] - 15, 6):
@@ -277,50 +300,78 @@ def create_label_image(item: str, description: str, size: str = "60x30") -> Opti
         return label
 
     else:
-        # Formato estándar 60x30 mm / 62x29 mm (600x300 px) - 100% Arial sin relleno (tamaño y fuente original)
-        bc_img = generate_barcode_image(item_text, target_size=(595, 120))
-
-        ancho, alto = 600, 300
+        # Formato estándar 62x29 mm (620x290 px) Brother DK-11209 / Cinta continua 62mm
+        # Contenido 100% centrado horizontal y verticalmente con márgenes mínimos equilibrados
+        ancho, alto = 620, 290
         label = Image.new('RGB', (ancho, alto), 'white')
         draw = ImageDraw.Draw(label)
 
-        # ID en Arial Bold tamaño 80 original
-        it_size = 80
+        # 1. Código de Ítem en Arial Bold original (tamaño base 84 pt con auto-ajuste)
+        it_size = 84
         font_item = get_font("arialbd.ttf", it_size)
-        font_description = get_font("arial.ttf", 22)
+        ib = draw.textbbox((0, 0), item_text, font=font_item)
+        iw = ib[2] - ib[0]
+        while iw > (ancho - 30) and it_size > 36:
+            it_size -= 2
+            font_item = get_font("arialbd.ttf", it_size)
+            ib = draw.textbbox((0, 0), item_text, font=font_item)
+            iw = ib[2] - ib[0]
+        ih = ib[3] - ib[1]
 
-        # Pegar código de barras
-        bc_x = (ancho - bc_img.width) // 2
-        bc_y = 10
+        # 2. Descripción en Arial Regular (auto-ajuste de tamaño y multilínea si es extensa)
+        desc_size = 26
+        font_desc = get_font("arial.ttf", desc_size)
+        db = draw.textbbox((0, 0), desc_text, font=font_desc)
+        dw = db[2] - db[0]
+        lines = [desc_text]
+        if dw > (ancho - 24):
+            desc_size = 22
+            font_desc = get_font("arial.ttf", desc_size)
+            db = draw.textbbox((0, 0), desc_text, font=font_desc)
+            dw = db[2] - db[0]
+            if dw > (ancho - 24):
+                desc_size = 20
+                font_desc = get_font("arial.ttf", desc_size)
+                lines = textwrap.wrap(desc_text, width=42)[:2]
+
+        line_bboxes = [draw.textbbox((0, 0), l, font=font_desc) for l in lines]
+        line_heights = [b[3] - b[1] for b in line_bboxes]
+        line_sp = 4
+        total_desc_ink_h = sum(line_heights) + (len(lines) - 1) * line_sp
+
+        # 3. Código de barras nítido y balance de márgenes verticales mínimos
+        gap1 = 12
+        gap2 = 10
+        target_margin = 16
+        available_bc_h = alto - (2 * target_margin) - (gap1 + ih + gap2 + total_desc_ink_h)
+        bc_h = max(80, min(140, available_bc_h))
+        bc_w = min(560, ancho - 24)
+
+        bc_img = generate_barcode_image(item_text, target_size=(bc_w, bc_h))
+
+        total_ink_h = bc_h + gap1 + ih + gap2 + total_desc_ink_h
+        start_y = (alto - total_ink_h) // 2
+
+        # Pegar código de barras centrado
+        bc_y = start_y
+        bc_x = (ancho - bc_w) // 2
         label.paste(bc_img, (bc_x, bc_y))
 
-        # Número de ítem debajo del código (Arial Bold tamaño 80 original)
-        bbox_item = draw.textbbox((0, 0), item_text, font=font_item)
-        item_w = bbox_item[2] - bbox_item[0]
-        while item_w > (ancho - 30) and it_size > 32:
-            it_size -= 4
-            font_item = get_font("arialbd.ttf", it_size)
-            bbox_item = draw.textbbox((0, 0), item_text, font=font_item)
-            item_w = bbox_item[2] - bbox_item[0]
+        # Texto del Ítem centrado matemáticamente (compensando offsets internos de la fuente)
+        item_y = bc_y + bc_h + gap1 - ib[1]
+        item_x = (ancho - iw) // 2 - ib[0]
+        draw.text((item_x, item_y), item_text, font=font_item, fill='black')
 
-        item_x = (ancho - item_w) // 2
-        item_y = bc_y + 120 - 15
-        draw.text((item_x, item_y), item_text, fill='black', font=font_item)
-
-        # Descripción debajo del ítem (Arial, negro sólido)
-        bbox_desc = draw.textbbox((0, 0), desc_text, font=font_description)
-        desc_w = bbox_desc[2] - bbox_desc[0]
-
-        if desc_w > (ancho - 20):
-            while len(desc_text) > 4 and (draw.textbbox((0, 0), desc_text + "...", font=font_description)[2] - draw.textbbox((0, 0), desc_text + "...", font=font_description)[0]) > (ancho - 20):
-                desc_text = desc_text[:-1]
-            desc_text = desc_text + "..."
-            bbox_desc = draw.textbbox((0, 0), desc_text, font=font_description)
-            desc_w = bbox_desc[2] - bbox_desc[0]
-
-        desc_x = (ancho - desc_w) // 2
-        desc_y = item_y + (bbox_item[3] - bbox_item[1]) + 20
-        draw.text((desc_x, desc_y), desc_text, fill='black', font=font_description)
+        # Descripción centrada línea por línea
+        curr_desc_y = bc_y + bc_h + gap1 + ih + gap2
+        for i, line in enumerate(lines):
+            lb = line_bboxes[i]
+            lw = lb[2] - lb[0]
+            lh = line_heights[i]
+            lx = (ancho - lw) // 2 - lb[0]
+            ly = curr_desc_y - lb[1]
+            draw.text((lx, ly), line, font=font_desc, fill='black')
+            curr_desc_y += lh + line_sp
 
         return label
 
@@ -656,6 +707,13 @@ def generate_print_html(req: GeneratePdfRequest):
   <title>Impresión Térmica Brother QL - {len(html_pages)} Etiquetas ({w_mm}x{h_mm} mm)</title>
   <script>
     window.addEventListener('load', function() {{
+      var ua = navigator.userAgent;
+      var bName = "Navegador Web";
+      if (ua.indexOf("Edg/") !== -1) bName = "Microsoft Edge (Seteo activo)";
+      else if (ua.indexOf("Chrome") !== -1) bName = "Google Chrome (Seteo activo)";
+      var bEl = document.getElementById("detected-browser-name");
+      if (bEl) bEl.textContent = bName;
+
       setTimeout(function() {{
         try {{
           window.focus();
@@ -823,8 +881,9 @@ def generate_print_html(req: GeneratePdfRequest):
         <span style="font-size: 12px; color: #a7f3d0; font-weight: normal;">({len(html_pages)} etiqueta{"" if len(html_pages)==1 else "s"})</span>
       </div>
       <div class="bar-badges">
+        <span class="badge">Navegador: <strong id="detected-browser-name">Chrome / Edge</strong></span>
         <span class="badge">Papel: <strong>{paper_badge}</strong></span>
-        <span class="badge">Márgenes: <strong>Ninguno</strong></span>
+        <span class="badge">Márgenes: <strong>0mm (Automático)</strong></span>
         <span class="badge">Orientación: <strong>Horizontal</strong></span>
       </div>
     </div>
