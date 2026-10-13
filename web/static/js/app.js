@@ -42,15 +42,34 @@ function initBrowserDetection() {
   }
 }
 
+let printerPollingInterval = null;
+
+function startPrinterPolling() {
+  if (printerPollingInterval) return;
+  let attempts = 0;
+  printerPollingInterval = setInterval(async () => {
+    attempts++;
+    const data = await initPrinters(false);
+    if ((data && data.brother_found) || attempts >= 15) {
+      clearInterval(printerPollingInterval);
+      printerPollingInterval = null;
+    }
+  }, 3000);
+}
+
 // Detección y Carga de Impresoras Brother / Windows
-async function initPrinters() {
+async function initPrinters(showToastOnSuccess = false) {
   const selectPrinter = document.getElementById("select-brother-printer");
   const badgeText = document.getElementById("brother-status-text");
   const badgeDot = document.getElementById("brother-status-badge")?.querySelector(".rounded-full");
+  const refreshBtn = document.getElementById("btn-refresh-printers");
+  const refreshIcon = refreshBtn?.querySelector("i");
+
+  if (refreshIcon) refreshIcon.classList.add("animate-spin");
 
   try {
     const res = await fetch("/api/printers");
-    if (!res.ok) return;
+    if (!res.ok) return null;
     const data = await res.json();
 
     if (selectPrinter) {
@@ -82,13 +101,23 @@ async function initPrinters() {
       if (data.brother_found) {
         badgeText.textContent = `${data.detected_brother} (Lista)`;
         badgeDot.className = "w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
+        if (showToastOnSuccess) {
+          showToast(`Impresora detectada: ${data.detected_brother}`, "success");
+        }
       } else {
         badgeText.textContent = "Sin Brother USB directa";
         badgeDot.className = "w-2 h-2 rounded-full bg-amber-500";
+        startPrinterPolling();
       }
     }
+    return data;
   } catch (err) {
     console.warn("Error cargando impresoras:", err);
+    return null;
+  } finally {
+    if (refreshIcon) {
+      setTimeout(() => refreshIcon.classList.remove("animate-spin"), 400);
+    }
   }
 }
 
@@ -933,13 +962,24 @@ function setupExportEvents() {
   const btnDownloadPrn = document.getElementById("btn-download-prn");
   const selectPrinter = document.getElementById("select-brother-printer");
   const selectRoll = document.getElementById("select-brother-roll");
+  const btnRefreshPrinters = document.getElementById("btn-refresh-printers");
+
+  if (btnRefreshPrinters) {
+    btnRefreshPrinters.addEventListener("click", () => initPrinters(true));
+  }
 
   if (btnPrintBrotherRaw) {
     btnPrintBrotherRaw.addEventListener("click", async () => {
       const payload = getExportPayload();
       if (!payload) return;
 
-      const chosenPrinter = selectPrinter ? selectPrinter.value : "";
+      let chosenPrinter = selectPrinter ? selectPrinter.value : "";
+      if (!chosenPrinter) {
+        const refreshed = await initPrinters(false);
+        if (refreshed && refreshed.detected_brother) {
+          chosenPrinter = refreshed.detected_brother;
+        }
+      }
       const chosenRoll = selectRoll ? selectRoll.value : "auto";
       const totalLabels = payload.items.reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
 
