@@ -282,4 +282,10 @@ def convert_images_to_brother_raster(
         cut=cut_each
     )
 
+    # Eliminar solicitud de estado ESC i S (b'\x1b\x69\x53')
+    # En el Spooler de Windows en modo RAW unidireccional, ESC i S hace que la impresora
+    # devuelva un paquete de 32 bytes que nunca se lee del endpoint USB IN, lo que provoca
+    # que la impresora se trabe o parpadee en error esperando respuesta del host.
+    raw_bytes = raw_bytes.replace(b'\x1b\x69\x53', b'')
+
     return raw_bytes
