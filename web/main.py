@@ -1061,7 +1061,7 @@ def print_brother_raw(req: PrintBrotherRawRequest):
         raw_bytes = convert_images_to_brother_raster(
             images=images_to_print,
             size=label_size,
-            roll_type=req.roll_type or "auto",
+            roll_type="continuous" if (not req.roll_type or req.roll_type == "auto") else req.roll_type,
             model="QL-800",
             cut_each=True
         )

@@ -234,25 +234,21 @@ def convert_images_to_brother_raster(
     is_large = size in ("60x95", "60x90", "62x100")
 
     # Determinar identificador de etiqueta para brother_ql
+    # Por defecto se utiliza '62' (Cinta Continua 62mm DK-22205), que es el formato
+    # instalado físicamente en la Brother QL-800 y permite imprimir tanto 29mm como 100mm con autocorte.
     if is_large:
         # Etiqueta Grande
-        if roll_type == "continuous":
-            label_id = "62"
-        elif roll_type == "die-cut":
+        if roll_type == "die-cut":
             label_id = "62x100"
         else:
-            # Auto: preferir die-cut 62x100
-            label_id = "62x100"
+            label_id = "62"
         target_size = (696, 1109)
     else:
         # Etiqueta Chica
-        if roll_type == "continuous":
-            label_id = "62"
-        elif roll_type == "die-cut":
+        if roll_type == "die-cut":
             label_id = "62x29"
         else:
-            # Auto: preferir die-cut 62x29
-            label_id = "62x29"
+            label_id = "62"
         target_size = (696, 271)
 
     # Preparar cada imagen con la orientación y dimensiones de puntos exactas del cabezal térmico

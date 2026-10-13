@@ -980,7 +980,7 @@ function setupExportEvents() {
           chosenPrinter = refreshed.detected_brother;
         }
       }
-      const chosenRoll = selectRoll ? selectRoll.value : "auto";
+      const chosenRoll = selectRoll?.value || "continuous";
       const totalLabels = payload.items.reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
 
       btnPrintBrotherRaw.disabled = true;
