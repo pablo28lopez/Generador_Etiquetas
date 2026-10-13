@@ -86,6 +86,12 @@ Valida:
 
 ## 🐙 Historial de Versiones
 
+- **`v2.6.0`**: **Impresión Directa por Comandos Nativos RAW (Sin Driver Windows):**
+  - Motor de generación de comandos Brother Raster binarios (`ESC i a`, `ESC i z`, raster scanlines, autocut) integrado en el backend.
+  - Envío directo al puerto USB / Spooler de Windows en modo `RAW` mediante `winspool.drv`, omitiendo el driver de Brother por completo.
+  - Impresión con 1 clic desde el navegador sin abrir diálogos de impresión, sin fallos de roll mismatch y con corte automático.
+  - Detección automática de impresora Brother conectada y selector de tipo de rollo (troquelado DK-11209/DK-11202 o continuo DK-22205).
+  - Descarga de archivos binarios `.prn` para depuración.
 - **`v2.5.0`**: **Edición Web Pura & Depuración Total:**
   - Purgado y eliminación de todos los componentes de escritorio antiguos y binarios pesados.
   - Suite Web 100% blindada, activa y testeada con suite automatizada (`tests/test_suite.py`).

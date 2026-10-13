@@ -17,11 +17,36 @@ from barcode.writer import ImageWriter
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 from fpdf import FPDF
 
+# Motor de comandos directos Brother QL (RAW)
+try:
+    from brother_raw import (
+        list_installed_printers,
+        find_brother_printer,
+        send_raw_to_printer,
+        convert_images_to_brother_raster,
+        BROTHER_QL_AVAILABLE
+    )
+except ImportError:
+    try:
+        from web.brother_raw import (
+            list_installed_printers,
+            find_brother_printer,
+            send_raw_to_printer,
+            convert_images_to_brother_raster,
+            BROTHER_QL_AVAILABLE
+        )
+    except ImportError:
+        BROTHER_QL_AVAILABLE = False
+        def list_installed_printers(): return []
+        def find_brother_printer(preferred_name=None): return None
+        def send_raw_to_printer(printer_name, raw_data, doc_name="Etiquetas"): raise RuntimeError("brother_raw no disponible")
+        def convert_images_to_brother_raster(*args, **kwargs): raise RuntimeError("brother_raw no disponible")
+
 # Inicializar FastAPI
 app = FastAPI(
     title="Generador de Etiquetas de Depósito",
-    description="API y SPA / PWA para generar etiquetas con código de barras e impresión térmica en PDF",
-    version="2.4.0"
+    description="API y SPA / PWA para generar etiquetas con código de barras e impresión térmica en PDF o Comandos RAW Brother QL",
+    version="2.6.0"
 )
 
 # Rutas base
@@ -398,6 +423,13 @@ class AddCatalogItemRequest(BaseModel):
     item: str
     description: str
     uom: Optional[str] = "CU"
+
+
+class PrintBrotherRawRequest(BaseModel):
+    items: List[ItemRequest]
+    size: Optional[str] = "60x30"
+    printer_name: Optional[str] = None
+    roll_type: Optional[str] = "auto"
 
 
 # ==========================================
@@ -973,6 +1005,117 @@ def download_zip(req: GeneratePdfRequest):
         media_type="application/zip",
         headers={
             "Content-Disposition": f"attachment; filename={clean_filename(req.filename or 'etiquetas')}.zip"
+        }
+    )
+
+
+# ==========================================
+# ENDPOINTS DE IMPRESIÓN DIRECTA BROTHER QL (COMANDOS NATIVOS RAW)
+# ==========================================
+@app.get("/api/printers")
+def get_printers():
+    """Retorna las impresoras instaladas en Windows y si hay una Brother QL conectada."""
+    all_p = list_installed_printers()
+    detected = find_brother_printer()
+    return {
+        "all_printers": all_p,
+        "detected_brother": detected,
+        "brother_found": detected is not None,
+        "raw_engine_ready": BROTHER_QL_AVAILABLE
+    }
+
+
+@app.post("/api/print-brother-raw")
+def print_brother_raw(req: PrintBrotherRawRequest):
+    """Envía comandos de impresión binarios nativos (Brother Raster) directo a la Brother QL-800 sin usar drivers ni diálogos."""
+    if not req.items:
+        raise HTTPException(status_code=400, detail="La lista de ítems está vacía")
+
+    # Determinar impresora
+    target_printer = req.printer_name or find_brother_printer()
+    if not target_printer:
+        printers_list = list_installed_printers()
+        raise HTTPException(
+            status_code=400,
+            detail=f"No se detectó ninguna impresora Brother QL conectada por USB en este equipo. Impresoras Windows detectadas: {', '.join(printers_list) if printers_list else 'Ninguna'}. Conecta la Brother QL-800 por USB o selecciona una impresora."
+        )
+
+    label_size = req.size or "60x30"
+
+    # Generar imágenes de etiquetas
+    images_to_print = []
+    for it in req.items:
+        if it.qty <= 0 or not it.item.strip():
+            continue
+        label_img = create_label_image(it.item, it.description, size=label_size)
+        if not label_img:
+            continue
+        for _ in range(it.qty):
+            images_to_print.append(label_img)
+
+    if not images_to_print:
+        raise HTTPException(status_code=400, detail="No se generaron etiquetas válidas con cantidad mayor a 0.")
+
+    # Convertir a comandos binarios RAW de Brother QL
+    try:
+        raw_bytes = convert_images_to_brother_raster(
+            images=images_to_print,
+            size=label_size,
+            roll_type=req.roll_type or "auto",
+            model="QL-800",
+            cut_each=True
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generando comandos raster Brother QL: {str(e)}")
+
+    # Enviar al spooler en modo RAW
+    try:
+        bytes_sent = send_raw_to_printer(target_printer, raw_bytes, doc_name=f"Etiquetas ({len(images_to_print)})")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error enviando comandos a '{target_printer}': {str(e)}")
+
+    return {
+        "status": "success",
+        "message": f"¡Éxito! Se enviaron {len(images_to_print)} etiqueta(s) directamente a '{target_printer}' mediante comandos RAW (sin driver).",
+        "printer": target_printer,
+        "total_labels": len(images_to_print),
+        "bytes_sent": bytes_sent
+    }
+
+
+@app.post("/api/download-prn")
+def download_prn(req: PrintBrotherRawRequest):
+    """Descarga el archivo binario de comandos nativos .prn de Brother QL para depuración o copia directa."""
+    if not req.items:
+        raise HTTPException(status_code=400, detail="La lista de ítems está vacía")
+
+    label_size = req.size or "60x30"
+    images_to_print = []
+    for it in req.items:
+        if it.qty <= 0 or not it.item.strip():
+            continue
+        label_img = create_label_image(it.item, it.description, size=label_size)
+        if not label_img:
+            continue
+        for _ in range(it.qty):
+            images_to_print.append(label_img)
+
+    if not images_to_print:
+        raise HTTPException(status_code=400, detail="No se generaron etiquetas válidas.")
+
+    raw_bytes = convert_images_to_brother_raster(
+        images=images_to_print,
+        size=label_size,
+        roll_type=req.roll_type or "auto",
+        model="QL-800",
+        cut_each=True
+    )
+
+    return Response(
+        content=raw_bytes,
+        media_type="application/octet-stream",
+        headers={
+            "Content-Disposition": f"attachment; filename=etiquetas_brother_{label_size}.prn"
         }
     )
 

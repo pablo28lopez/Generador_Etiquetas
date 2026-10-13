@@ -7,3 +7,4 @@ xlrd>=2.0.1
 python-barcode>=0.15.1
 Pillow>=10.2.0
 fpdf2>=2.7.9
+brother-ql>=0.9.4

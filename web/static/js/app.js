@@ -23,6 +23,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupTableEvents();
   setupExportEvents();
   loadCatalogStats();
+  initPrinters();
 });
 
 // Detección y Seteo Automático según Navegador (Chrome / Edge)
@@ -38,6 +39,56 @@ function initBrowserDetection() {
     } else {
       bText.innerHTML = `Seteo Brother QL-800: 62x29mm / 62x100mm activo`;
     }
+  }
+}
+
+// Detección y Carga de Impresoras Brother / Windows
+async function initPrinters() {
+  const selectPrinter = document.getElementById("select-brother-printer");
+  const badgeText = document.getElementById("brother-status-text");
+  const badgeDot = document.getElementById("brother-status-badge")?.querySelector(".rounded-full");
+
+  try {
+    const res = await fetch("/api/printers");
+    if (!res.ok) return;
+    const data = await res.json();
+
+    if (selectPrinter) {
+      selectPrinter.innerHTML = "";
+      if (data.detected_brother) {
+        const opt = document.createElement("option");
+        opt.value = data.detected_brother;
+        opt.textContent = `⭐ ${data.detected_brother} (Detectada)`;
+        opt.selected = true;
+        selectPrinter.appendChild(opt);
+      } else {
+        const defOpt = document.createElement("option");
+        defOpt.value = "";
+        defOpt.textContent = "-- Seleccionar Impresora --";
+        selectPrinter.appendChild(defOpt);
+      }
+
+      data.all_printers.forEach(p => {
+        if (p !== data.detected_brother) {
+          const opt = document.createElement("option");
+          opt.value = p;
+          opt.textContent = p;
+          selectPrinter.appendChild(opt);
+        }
+      });
+    }
+
+    if (badgeText && badgeDot) {
+      if (data.brother_found) {
+        badgeText.textContent = `${data.detected_brother} (Lista)`;
+        badgeDot.className = "w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
+      } else {
+        badgeText.textContent = "Sin Brother USB directa";
+        badgeDot.className = "w-2 h-2 rounded-full bg-amber-500";
+      }
+    }
+  } catch (err) {
+    console.warn("Error cargando impresoras:", err);
   }
 }
 
@@ -870,9 +921,106 @@ function setupExportEvents() {
     }
   }
 
-  btnPrintDirect.addEventListener("click", () => triggerBrowserPrint(false));
+  if (btnPrintDirect) {
+    btnPrintDirect.addEventListener("click", () => triggerBrowserPrint(false));
+  }
   if (btnPrintPopup) {
     btnPrintPopup.addEventListener("click", () => triggerBrowserPrint(true));
+  }
+
+  // --- IMPRESIÓN DIRECTA POR COMANDOS RAW BROTHER QL (SIN DRIVER) ---
+  const btnPrintBrotherRaw = document.getElementById("btn-print-brother-raw");
+  const btnDownloadPrn = document.getElementById("btn-download-prn");
+  const selectPrinter = document.getElementById("select-brother-printer");
+  const selectRoll = document.getElementById("select-brother-roll");
+
+  if (btnPrintBrotherRaw) {
+    btnPrintBrotherRaw.addEventListener("click", async () => {
+      const payload = getExportPayload();
+      if (!payload) return;
+
+      const chosenPrinter = selectPrinter ? selectPrinter.value : "";
+      const chosenRoll = selectRoll ? selectRoll.value : "auto";
+      const totalLabels = payload.items.reduce((s, it) => s + (parseInt(it.qty) || 0), 0);
+
+      btnPrintBrotherRaw.disabled = true;
+      const originalHtml = btnPrintBrotherRaw.innerHTML;
+      btnPrintBrotherRaw.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i><span>Enviando comandos a Brother QL (${totalLabels} etiq)...</span>`;
+      if (window.lucide) lucide.createIcons();
+
+      try {
+        const res = await fetch("/api/print-brother-raw", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            items: payload.items,
+            size: selectedLabelSize,
+            printer_name: chosenPrinter || null,
+            roll_type: chosenRoll
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || "Error al enviar comandos a la impresora");
+        }
+
+        showToast(data.message, "success");
+      } catch (err) {
+        showToast(err.message, "error");
+      } finally {
+        btnPrintBrotherRaw.disabled = false;
+        btnPrintBrotherRaw.innerHTML = originalHtml;
+        if (window.lucide) lucide.createIcons();
+      }
+    });
+  }
+
+  if (btnDownloadPrn) {
+    btnDownloadPrn.addEventListener("click", async () => {
+      const payload = getExportPayload();
+      if (!payload) return;
+
+      showToast("Generando archivo de comandos binarios .PRN...", "info");
+      btnDownloadPrn.disabled = true;
+
+      try {
+        const chosenRoll = selectRoll ? selectRoll.value : "auto";
+        const res = await fetch("/api/download-prn", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            items: payload.items,
+            size: selectedLabelSize,
+            roll_type: chosenRoll
+          })
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || "Error generando archivo .PRN");
+        }
+
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.style.display = "none";
+        a.href = url;
+        a.download = `etiquetas_${selectedLabelSize}.prn`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          a.remove();
+          window.URL.revokeObjectURL(url);
+        }, 10000);
+
+        showToast("Archivo .PRN descargado con éxito", "success");
+      } catch (err) {
+        showToast(err.message, "error");
+      } finally {
+        btnDownloadPrn.disabled = false;
+      }
+    });
   }
 
   btnDownloadPdf.addEventListener("click", async () => {

@@ -283,60 +283,71 @@
           </div>
         </div>
 
-        <!-- Tarjeta de Impresión y Descargas -->
+        <!-- Tarjeta de Impresión Directa y Descargas -->
         <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex flex-col gap-3">
-          <h2 class="text-sm font-bold text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
-            <i data-lucide="printer" class="w-4 h-4 text-emerald-600"></i>
-            Opciones de Impresión
-          </h2>
-
-          <!-- Seteo Automático según Navegador (Chrome / Edge) -->
-          <div id="browser-detection-badge" class="p-2.5 bg-indigo-50/80 border border-indigo-200 rounded-lg text-xs flex items-center justify-between text-indigo-950">
-            <div class="flex items-center gap-2">
-              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
-              <span id="browser-detected-text" class="font-medium">Detectando navegador...</span>
-            </div>
-            <span class="text-[10px] font-bold uppercase tracking-wider bg-indigo-200/60 text-indigo-800 px-1.5 py-0.5 rounded shrink-0">Auto-Seteo</span>
+          <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+            <h2 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <i data-lucide="printer" class="w-4 h-4 text-emerald-600"></i>
+              Impresión Brother QL-800
+            </h2>
+            <span id="brother-status-badge" class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+              <span id="brother-status-text">Buscando impresora...</span>
+            </span>
           </div>
 
-          <div class="space-y-2 pt-1">
-            <button id="btn-print-direct" class="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold py-3 px-4 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer">
-              <i data-lucide="printer" class="w-5 h-5"></i>
-              <span>Imprimir Directo (Navegador)</span>
-            </button>
+          <!-- Selector de Impresora y Tipo de Rollo -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Impresora Brother:</label>
+              <select id="select-brother-printer" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-800 outline-none focus:ring-1 focus:ring-emerald-500">
+                <option value="">Detectando automáticamente...</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Tipo de Rollo:</label>
+              <select id="select-brother-roll" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-800 outline-none focus:ring-1 focus:ring-emerald-500">
+                <option value="auto">Automático (Según medida)</option>
+                <option value="die-cut">Rollo Troquelado (DK-11209 / DK-11202)</option>
+                <option value="continuous">Cinta Continua 62mm (DK-22205)</option>
+              </select>
+            </div>
+          </div>
 
-            <button id="btn-print-popup" class="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold py-2 px-4 rounded-lg border border-emerald-200 flex items-center justify-center gap-2 transition-colors text-xs cursor-pointer" title="Abre una pestaña con la vista de impresión térmica lista para Ctrl+P">
-              <i data-lucide="external-link" class="w-4 h-4"></i>
-              <span>Abrir Pestaña de Impresión</span>
-            </button>
+          <!-- BOTÓN PRINCIPAL: ENVÍO DIRECTO RAW SIN DRIVER -->
+          <button id="btn-print-brother-raw" class="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-md hover:shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer">
+            <i data-lucide="zap" class="w-5 h-5 text-amber-300"></i>
+            <span id="lbl-btn-brother-raw">Imprimir en Brother QL-800 (Comandos Directos)</span>
+          </button>
+          
+          <div class="text-[11px] text-emerald-800 bg-emerald-50/90 border border-emerald-200 rounded-lg p-2.5 leading-snug">
+            ⚡ <strong>Comandos Nativos RAW (Sin Driver):</strong> Envía el bytecode térmico directamente a la Brother QL-800 conectada. <u>No abre diálogos de navegador, no usa drivers de Windows y no arroja error de medida de rollo</u>.
+          </div>
 
-            <button id="btn-download-pdf" class="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold py-2.5 px-4 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-all">
+          <!-- Opciones secundarias -->
+          <div class="border-t border-slate-100 pt-2 space-y-2">
+            <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Otras Opciones de Exportación:</div>
+
+            <button id="btn-download-pdf" class="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold py-2 px-4 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-all text-xs cursor-pointer">
               <i data-lucide="download" class="w-4 h-4"></i>
               <span id="lbl-btn-pdf">Descargar PDF (62x29 mm)</span>
             </button>
 
-            <button id="btn-download-zip" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors text-xs">
-              <i data-lucide="archive" class="w-4 h-4"></i>
-              <span>Descargar Imágenes (.ZIP)</span>
+            <button id="btn-print-popup" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2 px-4 rounded-lg border border-slate-200 flex items-center justify-center gap-2 transition-colors text-xs cursor-pointer" title="Abre una pestaña con la vista de impresión térmica lista para Ctrl+P">
+              <i data-lucide="external-link" class="w-4 h-4"></i>
+              <span>Abrir en Pestaña de Navegador (Ctrl + P)</span>
             </button>
-          </div>
 
-          <!-- Guía de Configuración Brother QL-800 -->
-          <div class="mt-2 p-3 bg-amber-50/90 border border-amber-200 rounded-lg text-xs text-amber-900 flex flex-col gap-1.5">
-            <div class="flex items-center gap-1.5 font-bold text-amber-800">
-              <i data-lucide="info" class="w-4 h-4 text-amber-600 shrink-0"></i>
-              <span>Ajustes Brother QL-800 (Chrome / Edge):</span>
-            </div>
-            <ul class="space-y-1 text-[11px] list-disc list-inside text-amber-900/90 pl-1 font-medium">
-              <li><strong>Destino:</strong> Brother QL-800</li>
-              <li><strong>Papel:</strong> Selecciona <span class="bg-amber-100 px-1 py-0.2 rounded font-mono font-bold text-amber-950">62mm</span> (o <span class="bg-amber-100 px-1 py-0.2 rounded font-mono font-bold text-amber-950">62mm x 29mm</span> / <span class="bg-amber-100 px-1 py-0.2 rounded font-mono font-bold text-amber-950">62mm x 100mm</span>)</li>
-              <li><strong>Márgenes:</strong> <span class="bg-amber-100 px-1 py-0.2 rounded font-bold text-amber-950">Ninguno</span></li>
-              <li><strong>Escala:</strong> <span class="bg-amber-100 px-1 py-0.2 rounded font-bold text-amber-950">100%</span> (o Ajustar al área)</li>
-              <li><strong>Orientación:</strong> <span class="bg-amber-100 px-1 py-0.2 rounded font-bold text-amber-950">Horizontal</span></li>
-            </ul>
-            <div class="text-[10px] bg-emerald-50 text-emerald-900 border border-emerald-200 rounded p-2 mt-1 leading-snug">
-              💡 <strong>Solución permanente al cambio de medida en el Driver:</strong><br>
-              Windows instala el driver de fábrica en <em>29mm x 90mm</em>. Para que nunca más tengas que cambiar la medida manualmente: ejecuta en la máquina con la impresora el archivo <strong><code>configurar_impresora_brother.bat</code></strong> y guarda <strong>62mm</strong> como valor predeterminado.
+            <div class="grid grid-cols-2 gap-2">
+              <button id="btn-download-zip" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-colors text-xs cursor-pointer">
+                <i data-lucide="archive" class="w-3.5 h-3.5"></i>
+                <span>Imágenes (.ZIP)</span>
+              </button>
+
+              <button id="btn-download-prn" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-colors text-xs cursor-pointer" title="Descarga los comandos binarios .prn nativos de Brother para pruebas">
+                <i data-lucide="file-code" class="w-3.5 h-3.5"></i>
+                <span>Comandos (.PRN)</span>
+              </button>
             </div>
           </div>
         </div>

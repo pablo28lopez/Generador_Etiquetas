@@ -96,9 +96,39 @@ class TestWebLabelGenerator(unittest.TestCase):
     def test_08_health_check(self):
         h = main.health()
         self.assertEqual(h["status"], "ok")
-        self.assertEqual(h["version"], "2.4.0")
+        self.assertEqual(h["version"], "2.6.0")
         print(f"[TEST 8 OK] Health check activo: versión {h['version']}.")
+
+    def test_09_printers_endpoint(self):
+        res = main.get_printers()
+        self.assertIn("all_printers", res)
+        self.assertIn("raw_engine_ready", res)
+        self.assertTrue(res["raw_engine_ready"])
+        print(f"[TEST 9 OK] Detección de impresoras validada (Total detectadas: {len(res['all_printers'])}).")
+
+    def test_10_raster_conversion(self):
+        img = main.create_label_image("01390006N", "ABRAZADERA CREMALLERA", size="60x30")
+        raw_bytes = main.convert_images_to_brother_raster([img], size="60x30", roll_type="auto")
+        self.assertGreater(len(raw_bytes), 1000)
+        # Comprobar inicio del comando ESC i a 1 (Raster mode)
+        self.assertTrue(raw_bytes.startswith(b"\x1bia\x01") or b"\x1bia\x01" in raw_bytes[:100])
+        print(f"[TEST 10 OK] Generación de bytecode raster Brother QL superada ({len(raw_bytes)} bytes).")
+
+    def test_11_download_prn_endpoint(self):
+        req = main.PrintBrotherRawRequest(
+            items=[
+                main.ItemRequest(item="01390006N", description="ABRAZADERA CREMALLERA", qty=1)
+            ],
+            size="60x30",
+            roll_type="auto"
+        )
+        res = main.download_prn(req)
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.media_type, "application/octet-stream")
+        self.assertGreater(len(res.body), 1000)
+        print(f"[TEST 11 OK] Endpoint download_prn validado ({len(res.body)} bytes).")
 
 
 if __name__ == "__main__":
     unittest.main()
+
