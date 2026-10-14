@@ -68,6 +68,9 @@ if ($printers) {
         Write-Host "       Driver : $($p.DriverName)" -ForegroundColor Gray
         Write-Host "       Red    : $sharedText" -ForegroundColor Gray
     }
+    Write-Host ""
+    Write-Host "     [CONSEJO] Si Brother Status Monitor arroja error de coincidencia de rollo," -ForegroundColor Cyan
+    Write-Host "               ejecuta 'configurar_medida_brother.bat' para fijar el tamano en '62mm'." -ForegroundColor Cyan
 } else {
     Write-Host "[NO INSTALADA] No hay ninguna impresora Brother QL registrada en este Windows." -ForegroundColor Red
     Write-Host "     -> Instala el driver de Brother QL-800 o ejecuta conectar_impresora_red.bat" -ForegroundColor Gray
