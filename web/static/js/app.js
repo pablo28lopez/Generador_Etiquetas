@@ -57,6 +57,18 @@ function startPrinterPolling() {
   }, 3000);
 }
 
+// Actualización dinámica de la etiqueta de rollo activo
+function updateActiveRollBadge() {
+  const selectRoll = document.getElementById("select-brother-roll");
+  const infoRoll = document.getElementById("info-roll-type");
+  if (!infoRoll) return;
+  const isContinuous = !selectRoll || selectRoll.value === "continuous";
+  const rollLabel = isContinuous
+    ? (selectedLabelSize === "60x95" ? "Cinta Continua 62mm (Corte 100mm)" : "Cinta Continua 62mm (DK-22205)")
+    : (selectedLabelSize === "60x95" ? "Troquelado Grande 62x100mm (DK-11202)" : "Troquelado Chico 62x29mm (DK-11209)");
+  infoRoll.textContent = rollLabel;
+}
+
 // Detección y Carga de Impresoras Brother / Windows
 async function initPrinters(showToastOnSuccess = false) {
   const selectPrinter = document.getElementById("select-brother-printer");
@@ -64,6 +76,11 @@ async function initPrinters(showToastOnSuccess = false) {
   const badgeDot = document.getElementById("brother-status-badge")?.querySelector(".rounded-full");
   const refreshBtn = document.getElementById("btn-refresh-printers");
   const refreshIcon = refreshBtn?.querySelector("i");
+
+  const infoPrinter = document.getElementById("info-printer-name");
+  const infoBadge = document.getElementById("info-connection-badge");
+  const infoHost = document.getElementById("info-host-pc");
+  const infoPanel = document.getElementById("brother-connection-panel");
 
   if (refreshIcon) refreshIcon.classList.add("animate-spin");
 
@@ -102,10 +119,22 @@ async function initPrinters(showToastOnSuccess = false) {
     const headerText = document.getElementById("header-printer-text");
     const headerDot = headerStatus?.querySelector(".rounded-full");
 
+    if (infoPrinter) infoPrinter.textContent = data.detected_brother || "No detectada";
+    if (infoHost) infoHost.textContent = `Host: ${data.host_name || 'Servidor'}`;
+    updateActiveRollBadge();
+
     if (data.brother_found && data.usb_physically_connected) {
       if (badgeText) badgeText.textContent = `${data.detected_brother} (USB Conectada)`;
       if (badgeDot) badgeDot.className = "w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
       if (badgeContainer) badgeContainer.className = "text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 flex items-center gap-1.5 shadow-xs";
+
+      if (infoBadge) {
+        infoBadge.textContent = "🟢 CONECTADA POR USB";
+        infoBadge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300";
+      }
+      if (infoPanel) {
+        infoPanel.className = "rounded-lg p-2.5 bg-emerald-50/50 border border-emerald-300 text-xs flex flex-col gap-1.5 transition-colors";
+      }
 
       if (headerText) headerText.textContent = `${data.detected_brother}: Conectada y Lista`;
       if (headerDot) headerDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
@@ -116,23 +145,39 @@ async function initPrinters(showToastOnSuccess = false) {
       }
     } else if (data.brother_found && !data.usb_physically_connected) {
       const hostLabel = data.host_name ? `en ${data.host_name}` : "en Servidor";
-      if (badgeText) badgeText.textContent = `${data.detected_brother} (Cable USB desconectado ${hostLabel})`;
-      if (badgeDot) badgeDot.className = "w-2 h-2 rounded-full bg-amber-500";
-      if (badgeContainer) badgeContainer.className = "text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-300 flex items-center gap-1.5 shadow-xs";
+      if (badgeText) badgeText.textContent = `${data.detected_brother} (USB Desconectado)`;
+      if (badgeDot) badgeDot.className = "w-2 h-2 rounded-full bg-rose-500";
+      if (badgeContainer) badgeContainer.className = "text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-800 border border-rose-300 flex items-center gap-1.5 shadow-xs";
+
+      if (infoBadge) {
+        infoBadge.textContent = "🔴 DESCONECTADA (Sin USB)";
+        infoBadge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300";
+      }
+      if (infoPanel) {
+        infoPanel.className = "rounded-lg p-2.5 bg-rose-50/50 border border-rose-300 text-xs flex flex-col gap-1.5 transition-colors";
+      }
 
       if (headerText) headerText.textContent = `Brother: USB desconectado (${hostLabel})`;
-      if (headerDot) headerDot.className = "w-2.5 h-2.5 rounded-full bg-amber-500";
-      if (headerStatus) headerStatus.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-300 shadow-xs";
+      if (headerDot) headerDot.className = "w-2.5 h-2.5 rounded-full bg-rose-500";
+      if (headerStatus) headerStatus.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-800 border border-rose-300 shadow-xs";
 
       startPrinterPolling();
     } else {
-      if (badgeText) badgeText.textContent = "Sin Brother USB directa";
-      if (badgeDot) badgeDot.className = "w-2 h-2 rounded-full bg-rose-500";
-      if (badgeContainer) badgeContainer.className = "text-[11px] font-medium px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1.5";
+      if (badgeText) badgeText.textContent = "Sin Brother detectada";
+      if (badgeDot) badgeDot.className = "w-2 h-2 rounded-full bg-slate-400";
+      if (badgeContainer) badgeContainer.className = "text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1.5";
+
+      if (infoBadge) {
+        infoBadge.textContent = "⚪ NO DETECTADA";
+        infoBadge.className = "text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-200 text-slate-700";
+      }
+      if (infoPanel) {
+        infoPanel.className = "rounded-lg p-2.5 bg-slate-50 border border-slate-200 text-xs flex flex-col gap-1.5 transition-colors";
+      }
 
       if (headerText) headerText.textContent = "Brother QL no detectada";
-      if (headerDot) headerDot.className = "w-2.5 h-2.5 rounded-full bg-rose-500";
-      if (headerStatus) headerStatus.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200 shadow-xs";
+      if (headerDot) headerDot.className = "w-2.5 h-2.5 rounded-full bg-slate-400";
+      if (headerStatus) headerStatus.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200 shadow-xs";
 
       startPrinterPolling();
     }
@@ -324,6 +369,7 @@ function setLabelSize(size) {
   }
 
   if (window.lucide) lucide.createIcons();
+  updateActiveRollBadge();
   updatePreview(lastPreviewItem, lastPreviewDesc);
 }
 
@@ -985,6 +1031,7 @@ function setupExportEvents() {
 
   // --- IMPRESIÓN DIRECTA POR COMANDOS RAW BROTHER QL (SIN DRIVER) ---
   const btnPrintBrotherRaw = document.getElementById("btn-print-brother-raw");
+  const btnTestPrinter = document.getElementById("btn-test-printer");
   const btnDownloadPrn = document.getElementById("btn-download-prn");
   const selectPrinter = document.getElementById("select-brother-printer");
   const selectRoll = document.getElementById("select-brother-roll");
@@ -992,6 +1039,50 @@ function setupExportEvents() {
 
   if (btnRefreshPrinters) {
     btnRefreshPrinters.addEventListener("click", () => initPrinters(true));
+  }
+
+  if (selectRoll) {
+    selectRoll.addEventListener("change", () => updateActiveRollBadge());
+  }
+
+  if (btnTestPrinter) {
+    btnTestPrinter.addEventListener("click", async () => {
+      const chosenPrinter = selectPrinter ? selectPrinter.value : "";
+      const chosenRoll = selectRoll ? selectRoll.value : "continuous";
+
+      btnTestPrinter.disabled = true;
+      const originalHtml = btnTestPrinter.innerHTML;
+      btnTestPrinter.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i><span>Enviando prueba a impresora...</span>`;
+      if (window.lucide) lucide.createIcons();
+
+      showToast("Comprobando conexión y enviando etiqueta de test a Brother QL...", "info");
+
+      try {
+        const res = await fetch("/api/printer/test", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            printer_name: chosenPrinter || null,
+            roll_type: chosenRoll
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || "Error en la prueba de impresora");
+        }
+
+        showToast(data.message, "success");
+        await initPrinters(false);
+      } catch (err) {
+        showToast(err.message, "error");
+        await initPrinters(false);
+      } finally {
+        btnTestPrinter.disabled = false;
+        btnTestPrinter.innerHTML = originalHtml;
+        if (window.lucide) lucide.createIcons();
+      }
+    });
   }
 
   if (btnPrintBrotherRaw) {

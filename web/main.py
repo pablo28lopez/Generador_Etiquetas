@@ -25,6 +25,7 @@ try:
         send_raw_to_printer,
         convert_images_to_brother_raster,
         is_brother_usb_connected,
+        generate_test_label_image,
         BROTHER_QL_AVAILABLE
     )
 except ImportError:
@@ -35,6 +36,7 @@ except ImportError:
             send_raw_to_printer,
             convert_images_to_brother_raster,
             is_brother_usb_connected,
+            generate_test_label_image,
             BROTHER_QL_AVAILABLE
         )
     except ImportError:
@@ -42,6 +44,7 @@ except ImportError:
         def list_installed_printers(): return []
         def find_brother_printer(preferred_name=None): return None
         def is_brother_usb_connected(): return False
+        def generate_test_label_image(*args, **kwargs): return None
         def send_raw_to_printer(printer_name, raw_data, doc_name="Etiquetas"): raise RuntimeError("brother_raw no disponible")
         def convert_images_to_brother_raster(*args, **kwargs): raise RuntimeError("brother_raw no disponible")
 
@@ -49,7 +52,7 @@ except ImportError:
 app = FastAPI(
     title="Generador de Etiquetas de Depósito",
     description="API y SPA / PWA para generar etiquetas con código de barras e impresión térmica en PDF o Comandos RAW Brother QL",
-    version="2.6.0"
+    version="2.6.2"
 )
 
 # Rutas base
@@ -433,6 +436,11 @@ class PrintBrotherRawRequest(BaseModel):
     size: Optional[str] = "60x30"
     printer_name: Optional[str] = None
     roll_type: Optional[str] = "auto"
+
+
+class TestPrinterRequest(BaseModel):
+    printer_name: Optional[str] = None
+    roll_type: Optional[str] = "continuous"
 
 
 # ==========================================
@@ -1135,6 +1143,56 @@ def download_prn(req: PrintBrotherRawRequest):
     )
 
 
+@app.post("/api/printer/test")
+def test_printer(req: Optional[TestPrinterRequest] = None):
+    """Envía una etiqueta de prueba física a la Brother QL-800 para verificar la conexión y calibración."""
+    target_printer = (req.printer_name if req else None) or find_brother_printer()
+    if not target_printer:
+        raise HTTPException(
+            status_code=400,
+            detail="No se detectó ninguna impresora Brother QL instalada en el sistema. Asegúrate de tener los drivers instalados o una Brother QL configurada."
+        )
+
+    import socket
+    host_name = os.environ.get("COMPUTERNAME") or socket.gethostname()
+    usb_ok = is_brother_usb_connected()
+
+    if not usb_ok:
+        raise HTTPException(
+            status_code=400,
+            detail=f"La impresora '{target_printer}' no está físicamente conectada por USB a este host ({host_name}). Conecta el cable USB a este equipo y vuelve a intentar."
+        )
+
+    roll_type = (req.roll_type if req else None) or "continuous"
+    test_img = generate_test_label_image(host_name=host_name, printer_name=target_printer)
+    if not test_img:
+        raise HTTPException(status_code=500, detail="Error generando la imagen de la etiqueta de prueba.")
+
+    try:
+        raw_bytes = convert_images_to_brother_raster(
+            images=[test_img],
+            size="60x30",
+            roll_type=roll_type,
+            model="QL-800",
+            cut_each=True
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generando comandos raster de prueba: {str(e)}")
+
+    try:
+        bytes_sent = send_raw_to_printer(target_printer, raw_bytes, doc_name="Test Impresora Brother QL")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error comunicando con '{target_printer}': {str(e)}")
+
+    return {
+        "status": "success",
+        "message": f"¡Prueba exitosa! Conexión verificada y etiqueta de prueba enviada a '{target_printer}' ({bytes_sent} bytes enviados por USB).",
+        "printer": target_printer,
+        "host_name": host_name,
+        "bytes_sent": bytes_sent
+    }
+
+
 # ==========================================
 # RUTAS DE PWA / SPA / STATIC
 # ==========================================
@@ -1150,7 +1208,11 @@ def get_manifest():
 def get_service_worker():
     sw_path = os.path.join(STATIC_DIR, "js", "service-worker.js")
     if os.path.exists(sw_path):
-        return FileResponse(sw_path, media_type="application/javascript")
+        return FileResponse(
+            sw_path,
+            media_type="application/javascript",
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
     raise HTTPException(status_code=404, detail="service-worker.js no encontrado")
 
 
@@ -1161,5 +1223,8 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 def serve_spa():
     index_path = os.path.join(STATIC_DIR, "index.html")
     if os.path.exists(index_path):
-        return FileResponse(index_path)
+        return FileResponse(
+            index_path,
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+        )
     return {"message": "SPA index.html no encontrado"}

@@ -165,22 +165,73 @@ def find_brother_printer(preferred_name: Optional[str] = None) -> Optional[str]:
     return preferred_name
 
 
+import time
+
+_usb_cache = {"time": 0.0, "status": False}
+
 def is_brother_usb_connected() -> bool:
     """Verifica si la impresora Brother QL-800 está físicamente conectada por USB a este host."""
     if sys.platform != "win32":
         return False
+    now = time.time()
+    if now - _usb_cache["time"] < 2.5:
+        return _usb_cache["status"]
+
     try:
         import subprocess
         res = subprocess.run(
             ["powershell", "-NoProfile", "-Command", "(Get-PnpDevice -PresentOnly -ErrorAction SilentlyContinue | Where-Object { $_.FriendlyName -like '*Brother*' -or $_.InstanceId -like '*04F9*' }).Count"],
             capture_output=True,
             text=True,
-            timeout=2
+            timeout=4
         )
         count = int(res.stdout.strip() or 0)
-        return count > 0
+        status = count > 0
+        _usb_cache["time"] = now
+        _usb_cache["status"] = status
+        return status
     except Exception:
         return False
+
+
+def generate_test_label_image(host_name: str = "Servidor", printer_name: str = "Brother QL-800") -> Image.Image:
+    """Genera una imagen PIL de etiqueta de prueba para verificar conectividad y corte físico."""
+    import datetime
+    from PIL import ImageDraw, ImageFont
+
+    img = Image.new("RGB", (620, 290), "white")
+    draw = ImageDraw.Draw(img)
+
+    # Marco exterior
+    draw.rectangle([6, 6, 614, 284], outline="black", width=3)
+    draw.rectangle([12, 12, 608, 278], outline="black", width=1)
+
+    # Encabezado inverso
+    draw.rectangle([14, 14, 606, 65], fill="black")
+    try:
+        font_header = ImageFont.truetype("arialbd.ttf", 26)
+        font_sub = ImageFont.truetype("arialbd.ttf", 18)
+        font_body = ImageFont.truetype("arial.ttf", 16)
+        font_small = ImageFont.truetype("arial.ttf", 13)
+    except Exception:
+        font_header = ImageFont.load_default()
+        font_sub = ImageFont.load_default()
+        font_body = ImageFont.load_default()
+        font_small = ImageFont.load_default()
+
+    draw.text((25, 24), "TEST DE IMPRESORA BROTHER QL", fill="white", font=font_header)
+
+    now_str = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    draw.text((25, 80), f"IMPRESORA: {printer_name}", fill="black", font=font_sub)
+    draw.text((25, 115), f"HOST: {host_name}", fill="black", font=font_body)
+    draw.text((25, 145), f"FECHA/HORA: {now_str}", fill="black", font=font_body)
+    draw.text((25, 175), "COMUNICACION: RAW BYTECODE OK (SIN DRIVER)", fill="black", font=font_body)
+    draw.text((25, 205), "CALIBRACION: CINTA CONTINUA 62mm", fill="black", font=font_body)
+
+    draw.rectangle([14, 240, 606, 276], fill="#f1f5f9")
+    draw.text((25, 248), "SISTEMA DE ETIQUETAS DEPOSITO - CONEXION EXITOSA", fill="black", font=font_small)
+
+    return img
 
 
 def send_raw_to_printer(printer_name: str, raw_data: bytes, doc_name: str = "Etiquetas Brother QL") -> int:

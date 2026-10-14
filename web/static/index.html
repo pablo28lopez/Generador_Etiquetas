@@ -292,8 +292,20 @@
             </h2>
             <span id="brother-status-badge" class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 flex items-center gap-1.5">
               <span class="w-2 h-2 rounded-full bg-slate-400"></span>
-              <span id="brother-status-text">Buscando impresora...</span>
+              <span id="brother-status-text">Detectando...</span>
             </span>
+          </div>
+
+          <!-- PANEL INFORMATIVO DE ESTADO, IMPRESORA Y TIPO DE ROLLO -->
+          <div id="brother-connection-panel" class="rounded-lg p-2.5 bg-slate-50 border border-slate-200 text-xs flex flex-col gap-1.5 transition-colors">
+            <div class="flex items-center justify-between">
+              <span class="text-slate-700 text-[11px]">Impresora: <strong id="info-printer-name" class="text-slate-900 font-bold">Brother QL-800</strong></span>
+              <span id="info-connection-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">Comprobando...</span>
+            </div>
+            <div class="flex items-center justify-between text-[11px] text-slate-500 border-t border-slate-200/60 pt-1">
+              <span>Rollo: <strong id="info-roll-type" class="text-emerald-700 font-semibold">Cinta Continua 62mm</strong></span>
+              <span id="info-host-pc" class="font-mono text-[10px] text-slate-400">Host: Servidor</span>
+            </div>
           </div>
 
           <!-- Selector de Impresora y Tipo de Rollo -->
@@ -312,8 +324,8 @@
             <div>
               <label class="block text-[11px] font-semibold text-slate-600 mb-1">Tipo de Rollo:</label>
               <select id="select-brother-roll" class="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-xs text-slate-800 outline-none focus:ring-1 focus:ring-emerald-500">
-                <option value="continuous" selected>⭐ Cinta Continua 62mm (DK-22205 - Instalado)</option>
-                <option value="die-cut">Rollo Troquelado Precortado (DK-11209 / DK-11202)</option>
+                <option value="continuous" selected>⭐ Cinta Continua 62mm (DK-22205)</option>
+                <option value="die-cut">Rollo Troquelado (DK-11209 / DK-11202)</option>
               </select>
             </div>
           </div>
@@ -323,16 +335,19 @@
             <i data-lucide="zap" class="w-5 h-5 text-amber-300"></i>
             <span id="lbl-btn-brother-raw">Imprimir en Brother QL-800 (Comandos Directos)</span>
           </button>
-          
-          <div class="text-[11px] text-emerald-800 bg-emerald-50/90 border border-emerald-200 rounded-lg p-2.5 leading-snug">
-            ⚡ <strong>Comandos Nativos RAW (Sin Driver):</strong> Envía el bytecode térmico directamente a la Brother QL-800 conectada. <u>No abre diálogos de navegador, no usa drivers de Windows y no arroja error de medida de rollo</u>.
-          </div>
+
+          <!-- BOTÓN DE PRUEBA DE IMPRESORA / TEST DE CONEXIÓN -->
+          <button type="button" id="btn-test-printer" class="w-full bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-semibold py-2 px-3 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-all text-xs cursor-pointer" title="Envía una etiqueta de prueba física a la Brother QL-800 para verificar la conexión y calibración">
+            <i data-lucide="flask-conical" class="w-4 h-4"></i>
+            <span id="lbl-btn-test-printer">🧪 Prueba Impresora (Test de Conexión)</span>
+          </button>
 
           <!-- Opciones secundarias -->
           <div class="border-t border-slate-100 pt-2 space-y-2">
             <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Otras Opciones de Exportación:</div>
 
-            <button id="btn-download-pdf" class="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold py-2 px-4 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-all text-xs cursor-pointer">
+            <!-- Botón PDF en ROJO según solicitud -->
+            <button id="btn-download-pdf" class="w-full bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-semibold py-2 px-4 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-all text-xs cursor-pointer">
               <i data-lucide="download" class="w-4 h-4"></i>
               <span id="lbl-btn-pdf">Descargar PDF (62x29 mm)</span>
             </button>
@@ -430,6 +445,6 @@
 
   <iframe id="print-iframe" class="hidden"></iframe>
   <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
-  <script src="/static/js/app.js"></script>
+  <script src="/static/js/app.js?v=2.6.2"></script>
 </body>
 </html>

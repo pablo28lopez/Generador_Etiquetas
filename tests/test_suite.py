@@ -96,7 +96,7 @@ class TestWebLabelGenerator(unittest.TestCase):
     def test_08_health_check(self):
         h = main.health()
         self.assertEqual(h["status"], "ok")
-        self.assertEqual(h["version"], "2.6.0")
+        self.assertEqual(h["version"], main.app.version)
         print(f"[TEST 8 OK] Health check activo: versión {h['version']}.")
 
     def test_09_printers_endpoint(self):
@@ -127,6 +127,14 @@ class TestWebLabelGenerator(unittest.TestCase):
         self.assertEqual(res.media_type, "application/octet-stream")
         self.assertGreater(len(res.body), 1000)
         print(f"[TEST 11 OK] Endpoint download_prn validado ({len(res.body)} bytes).")
+
+    def test_12_generate_test_label_image(self):
+        test_img = main.generate_test_label_image("TEST-HOST", "Brother QL-800")
+        self.assertIsNotNone(test_img)
+        self.assertEqual(test_img.size, (620, 290))
+        raw_bytes = main.convert_images_to_brother_raster([test_img], size="60x30", roll_type="continuous")
+        self.assertGreater(len(raw_bytes), 1000)
+        print(f"[TEST 12 OK] Etiqueta de test para botón de prueba validada ({len(raw_bytes)} bytes).")
 
 
 if __name__ == "__main__":
