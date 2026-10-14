@@ -86,16 +86,16 @@
         <div class="flex flex-col gap-4">
           <div class="flex flex-col sm:flex-row gap-3 items-center justify-between">
             <div class="relative w-full sm:flex-1">
-              <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
-              <input type="text" id="catalog-search-input" placeholder="Buscar en los ~36.800 ítems por código (ej: 0100...) o descripción..." class="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 hover:bg-white focus:bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none uppercase font-mono">
+              <i data-lucide="search" class="w-5 h-5 text-black stroke-[2.5] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+              <input type="text" id="catalog-search-input" placeholder="Buscar en los ~36.800 ítems por código (ej: 0100...) o descripción..." class="w-full pl-11 pr-4 py-3 text-base bg-white hover:bg-white focus:bg-white border-2 border-black rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none uppercase font-mono shadow-sm font-medium placeholder:text-slate-400 placeholder:normal-case transition-all">
             </div>
             <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
-              <button id="btn-trigger-add-modal" class="text-xs font-semibold px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg flex items-center gap-1.5 transition-colors">
-                <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+              <button id="btn-trigger-add-modal" class="text-xs font-bold px-3.5 py-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm">
+                <i data-lucide="plus" class="w-4 h-4 stroke-[2.5]"></i>
                 Agregar Ítem a la Base
               </button>
-              <a href="/api/catalog/download" class="text-xs font-semibold px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg flex items-center gap-1.5 transition-colors" title="Descargar DATOS_DEPO.xlsx">
-                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              <a href="/api/catalog/download" class="text-xs font-bold px-3.5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm" title="Descargar DATOS_DEPO.xlsx">
+                <i data-lucide="download" class="w-4 h-4 stroke-[2.5]"></i>
                 Descargar Excel
               </a>
             </div>
@@ -486,6 +486,6 @@
 
   <iframe id="print-iframe" class="hidden"></iframe>
   <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
-  <script src="/static/js/app.js?v=2.6.6"></script>
+  <script src="/static/js/app.js?v=2.6.7"></script>
 </body>
 </html>
