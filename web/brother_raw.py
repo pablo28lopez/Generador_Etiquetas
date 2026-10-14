@@ -269,10 +269,8 @@ def get_active_brother_printer(preferred_name: Optional[str] = None, configured_
 
     # 3. Si NO está por USB local, comprobar impresoras Brother en red conocidas / conectadas
     network_candidates = []
-    for p in installed:
-        if p.startswith(r"\\") and "BROTHER" in p.upper():
-            network_candidates.append(p)
 
+    # a) Si hay un host configurado manualmente por el usuario en "En Red", probarlo en PRIMER lugar
     if configured_remote_host:
         clean_cfg = configured_remote_host.replace("http://", "").replace("https://", "").split(":")[0].strip()
         if clean_cfg:
@@ -280,6 +278,13 @@ def get_active_brother_printer(preferred_name: Optional[str] = None, configured_
             if cand not in network_candidates:
                 network_candidates.append(cand)
 
+    # b) Si hay impresoras instaladas en Windows que son de red y contienen Brother
+    for p in installed:
+        if p.startswith(r"\\") and "BROTHER" in p.upper():
+            if p not in network_candidates:
+                network_candidates.append(p)
+
+    # c) IP conocida de la máquina del compañero donde se trasladó la impresora
     known_coworker = r"\\10.12.70.89\Brother QL-800"
     if known_coworker not in network_candidates:
         network_candidates.append(known_coworker)
@@ -288,6 +293,18 @@ def get_active_brother_printer(preferred_name: Optional[str] = None, configured_
         if probe_printer_open(cand):
             parts = cand.lstrip("\\").split("\\")
             r_host = parts[0]
+
+            # Si la conexión de red aún no está registrada en Windows, registrarla en segundo plano
+            if cand not in installed and sys.platform == "win32":
+                try:
+                    subprocess.Popen(
+                        ["powershell", "-NoProfile", "-Command", f'Add-Printer -ConnectionName "{cand}" -ErrorAction SilentlyContinue'],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL
+                    )
+                except Exception:
+                    pass
+
             res = {
                 "detected_brother": cand,
                 "brother_found": True,
@@ -332,6 +349,13 @@ def is_brother_usb_connected(printer_name: Optional[str] = None) -> bool:
     """Verifica si la impresora Brother QL está conectada por USB (en este equipo o en red)."""
     info = get_active_brother_printer(preferred_name=printer_name)
     return bool(info.get("connected", False))
+
+
+def clear_printer_cache():
+    """Limpia la memoria caché de estado de impresora para refresco inmediato."""
+    _active_printer_cache["time"] = 0.0
+    _active_printer_cache["data"] = None
+    _usb_cache["time"] = 0.0
 
 
 def draw_printer_icon(draw, cx, cy, size=40, fill="black"):

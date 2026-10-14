@@ -27,6 +27,7 @@ try:
         is_brother_usb_connected,
         get_active_brother_printer,
         probe_printer_open,
+        clear_printer_cache,
         generate_test_label_image,
         draw_printer_icon,
         BROTHER_QL_AVAILABLE
@@ -41,6 +42,7 @@ except ImportError:
             is_brother_usb_connected,
             get_active_brother_printer,
             probe_printer_open,
+            clear_printer_cache,
             generate_test_label_image,
             draw_printer_icon,
             BROTHER_QL_AVAILABLE
@@ -52,6 +54,7 @@ except ImportError:
         def is_brother_usb_connected(*args, **kwargs): return False
         def get_active_brother_printer(*args, **kwargs): return {"detected_brother": None, "brother_found": False, "connected": False, "host_name": "", "is_remote": False, "location": ""}
         def probe_printer_open(name): return False
+        def clear_printer_cache(): pass
         def generate_test_label_image(*args, **kwargs): return None
         def draw_printer_icon(*args, **kwargs): pass
         def send_raw_to_printer(printer_name, raw_data, doc_name="Etiquetas"): raise RuntimeError("brother_raw no disponible")
@@ -246,9 +249,25 @@ def create_label_image(item: str, description: str, size: str = "60x30") -> Opti
         draw = ImageDraw.Draw(label)
         margin_x = 35
 
-        # 1. Cabecera con Icono de Impresora y DLS DEPOSITO NEUQUEN (sin logo corporativo externo)
+        # 1. Logo DLS Archer (arriba a la izquierda) y al lado DLS DEPOSITO NEUQUEN
+        logo_path = os.path.join(STATIC_DIR, "img", "logo.png")
+        if not os.path.exists(logo_path):
+            logo_path = os.path.join(BASE_DIR, "logo.png")
+
         lh = 130
-        pill_left = margin_x
+        if os.path.exists(logo_path):
+            try:
+                logo = Image.open(logo_path).convert("RGBA")
+                lw = int(logo.width * (lh / logo.height))
+                logo_resized = logo.resize((lw, lh), Image.Resampling.LANCZOS)
+                label.paste(logo_resized, (margin_x, 25), logo_resized)
+                pill_left = margin_x + lw + 20
+            except Exception as e:
+                print(f"Error cargando logo en etiqueta 60x95: {e}")
+                pill_left = margin_x
+        else:
+            pill_left = margin_x
+
         pill_right = w - margin_x
         pill_top = 25
         pill_bottom = 25 + lh
@@ -256,24 +275,14 @@ def create_label_image(item: str, description: str, size: str = "60x30") -> Opti
         # Recuadro redondeado sin relleno (borde negro, fondo blanco)
         draw.rounded_rectangle([pill_left, pill_top, pill_right, pill_bottom], radius=18, outline='black', width=4, fill='white')
 
-        # Icono de impresora y Texto DLS DEPOSITO NEUQUEN en Arial Bold centrado
+        # Texto DLS DEPOSITO NEUQUEN en Arial Bold negro sólido
         font_header = get_font("arialbd.ttf", 52)
         header_text = "DLS DEPOSITO NEUQUEN"
         hb = draw.textbbox((0, 0), header_text, font=font_header)
         hw = hb[2] - hb[0]
-        hh = hb[3] - hb[1]
-
-        icon_size = 62
-        gap = 22
-        total_header_w = icon_size + gap + hw
-        start_hx = pill_left + (pill_right - pill_left - total_header_w) // 2
-        cy = pill_top + (pill_bottom - pill_top) // 2
-
-        try:
-            draw_printer_icon(draw, start_hx + icon_size // 2, cy, size=icon_size, fill='black')
-        except Exception:
-            pass
-        draw.text((start_hx + icon_size + gap, cy - hh // 2 - hb[1]), header_text, font=font_header, fill='black')
+        hx = pill_left + (pill_right - pill_left - hw) // 2
+        hy = pill_top + (pill_bottom - pill_top - (hb[3] - hb[1])) // 2 - 4
+        draw.text((hx, hy), header_text, font=font_header, fill='black')
 
         # 2. Recuadro del Código de Ítem (Fondo NEGRO sólido con texto en BLANCO en Arial Black maximizado y perfectamente centrado)
         code_top = 175
@@ -1091,6 +1100,7 @@ def set_printer_config(cfg_in: PrinterConfigModel):
     clean = cfg_in.remote_printer_host.strip().replace("http://", "").replace("https://", "").rstrip("/")
     cfg["remote_printer_host"] = clean
     save_printer_config(cfg)
+    clear_printer_cache()
     return {"status": "success", "config": cfg}
 
 
