@@ -97,18 +97,44 @@ async function initPrinters(showToastOnSuccess = false) {
       });
     }
 
-    if (badgeText && badgeDot) {
-      if (data.brother_found) {
-        badgeText.textContent = `${data.detected_brother} (Lista)`;
-        badgeDot.className = "w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
-        if (showToastOnSuccess) {
-          showToast(`Impresora detectada: ${data.detected_brother}`, "success");
-        }
-      } else {
-        badgeText.textContent = "Sin Brother USB directa";
-        badgeDot.className = "w-2 h-2 rounded-full bg-amber-500";
-        startPrinterPolling();
+    const badgeContainer = document.getElementById("brother-status-badge");
+    const headerStatus = document.getElementById("header-printer-status");
+    const headerText = document.getElementById("header-printer-text");
+    const headerDot = headerStatus?.querySelector(".rounded-full");
+
+    if (data.brother_found && data.usb_physically_connected) {
+      if (badgeText) badgeText.textContent = `${data.detected_brother} (USB Conectada)`;
+      if (badgeDot) badgeDot.className = "w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
+      if (badgeContainer) badgeContainer.className = "text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 flex items-center gap-1.5 shadow-xs";
+
+      if (headerText) headerText.textContent = `${data.detected_brother}: Conectada y Lista`;
+      if (headerDot) headerDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
+      if (headerStatus) headerStatus.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 shadow-xs";
+
+      if (showToastOnSuccess) {
+        showToast(`Impresora detectada y lista en USB: ${data.detected_brother}`, "success");
       }
+    } else if (data.brother_found && !data.usb_physically_connected) {
+      const hostLabel = data.host_name ? `en ${data.host_name}` : "en Servidor";
+      if (badgeText) badgeText.textContent = `${data.detected_brother} (Cable USB desconectado ${hostLabel})`;
+      if (badgeDot) badgeDot.className = "w-2 h-2 rounded-full bg-amber-500";
+      if (badgeContainer) badgeContainer.className = "text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-300 flex items-center gap-1.5 shadow-xs";
+
+      if (headerText) headerText.textContent = `Brother: USB desconectado (${hostLabel})`;
+      if (headerDot) headerDot.className = "w-2.5 h-2.5 rounded-full bg-amber-500";
+      if (headerStatus) headerStatus.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-300 shadow-xs";
+
+      startPrinterPolling();
+    } else {
+      if (badgeText) badgeText.textContent = "Sin Brother USB directa";
+      if (badgeDot) badgeDot.className = "w-2 h-2 rounded-full bg-rose-500";
+      if (badgeContainer) badgeContainer.className = "text-[11px] font-medium px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1.5";
+
+      if (headerText) headerText.textContent = "Brother QL no detectada";
+      if (headerDot) headerDot.className = "w-2.5 h-2.5 rounded-full bg-rose-500";
+      if (headerStatus) headerStatus.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200 shadow-xs";
+
+      startPrinterPolling();
     }
     return data;
   } catch (err) {
@@ -851,7 +877,7 @@ function setupExportEvents() {
     const labelNom = (selectedLabelSize === "60x95" || selectedLabelSize === "60x90") ? "62mm x 100mm" : "62mm x 29mm";
 
     showToast(`Preparando impresión térmica (${browserName} - ${labelNom})...`, "info");
-    btnPrintDirect.disabled = true;
+    if (btnPrintDirect) btnPrintDirect.disabled = true;
     if (btnPrintPopup) btnPrintPopup.disabled = true;
 
     // Si es en nueva pestaña, abrir de inmediato para no perder el contexto de click
@@ -945,7 +971,7 @@ function setupExportEvents() {
       if (printTab) printTab.close();
       showToast(err.message, "error");
     } finally {
-      btnPrintDirect.disabled = false;
+      if (btnPrintDirect) btnPrintDirect.disabled = false;
       if (btnPrintPopup) btnPrintPopup.disabled = false;
     }
   }
@@ -974,11 +1000,12 @@ function setupExportEvents() {
       if (!payload) return;
 
       let chosenPrinter = selectPrinter ? selectPrinter.value : "";
-      if (!chosenPrinter) {
-        const refreshed = await initPrinters(false);
-        if (refreshed && refreshed.detected_brother) {
-          chosenPrinter = refreshed.detected_brother;
-        }
+      const refreshed = await initPrinters(false);
+      if (refreshed && refreshed.detected_brother) {
+        chosenPrinter = refreshed.detected_brother;
+      }
+      if (refreshed && !refreshed.usb_physically_connected) {
+        showToast(`⚠️ La Brother QL-800 no está enchufada al puerto USB del servidor (${refreshed.host_name || 'Servidor'}). Si la tienes conectada a tu máquina por USB, usa "Abrir en Pestaña (Ctrl + P)".`, "warning");
       }
       const chosenRoll = selectRoll?.value || "continuous";
       const totalLabels = payload.items.reduce((s, it) => s + (parseInt(it.qty) || 0), 0);

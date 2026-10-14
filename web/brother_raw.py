@@ -165,6 +165,24 @@ def find_brother_printer(preferred_name: Optional[str] = None) -> Optional[str]:
     return preferred_name
 
 
+def is_brother_usb_connected() -> bool:
+    """Verifica si la impresora Brother QL-800 está físicamente conectada por USB a este host."""
+    if sys.platform != "win32":
+        return False
+    try:
+        import subprocess
+        res = subprocess.run(
+            ["powershell", "-NoProfile", "-Command", "(Get-PnpDevice -PresentOnly -ErrorAction SilentlyContinue | Where-Object { $_.FriendlyName -like '*Brother*' -or $_.InstanceId -like '*04F9*' }).Count"],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        count = int(res.stdout.strip() or 0)
+        return count > 0
+    except Exception:
+        return False
+
+
 def send_raw_to_printer(printer_name: str, raw_data: bytes, doc_name: str = "Etiquetas Brother QL") -> int:
     """Envía un flujo de bytes crudos (RAW) directamente a la impresora usando winspool.drv."""
     if not winspool:

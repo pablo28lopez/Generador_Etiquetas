@@ -24,6 +24,7 @@ try:
         find_brother_printer,
         send_raw_to_printer,
         convert_images_to_brother_raster,
+        is_brother_usb_connected,
         BROTHER_QL_AVAILABLE
     )
 except ImportError:
@@ -33,12 +34,14 @@ except ImportError:
             find_brother_printer,
             send_raw_to_printer,
             convert_images_to_brother_raster,
+            is_brother_usb_connected,
             BROTHER_QL_AVAILABLE
         )
     except ImportError:
         BROTHER_QL_AVAILABLE = False
         def list_installed_printers(): return []
         def find_brother_printer(preferred_name=None): return None
+        def is_brother_usb_connected(): return False
         def send_raw_to_printer(printer_name, raw_data, doc_name="Etiquetas"): raise RuntimeError("brother_raw no disponible")
         def convert_images_to_brother_raster(*args, **kwargs): raise RuntimeError("brother_raw no disponible")
 
@@ -974,6 +977,13 @@ def generate_print_html(req: GeneratePdfRequest):
     </div>
   </div>
   {pages_joined}
+  <script>
+    window.addEventListener('load', function() {{
+      setTimeout(function() {{
+        try {{ window.print(); }} catch(e) {{}}
+      }}, 350);
+    }});
+  </script>
 </body>
 </html>"""
 
@@ -1017,10 +1027,15 @@ def get_printers():
     """Retorna las impresoras instaladas en Windows y si hay una Brother QL conectada."""
     all_p = list_installed_printers()
     detected = find_brother_printer()
+    usb_ok = is_brother_usb_connected()
+    import socket
+    host_name = os.environ.get("COMPUTERNAME") or socket.gethostname()
     return {
         "all_printers": all_p,
         "detected_brother": detected,
         "brother_found": detected is not None,
+        "usb_physically_connected": usb_ok,
+        "host_name": host_name,
         "raw_engine_ready": BROTHER_QL_AVAILABLE
     }
 
