@@ -26,6 +26,7 @@ try:
         convert_images_to_brother_raster,
         is_brother_usb_connected,
         generate_test_label_image,
+        draw_printer_icon,
         BROTHER_QL_AVAILABLE
     )
 except ImportError:
@@ -37,6 +38,7 @@ except ImportError:
             convert_images_to_brother_raster,
             is_brother_usb_connected,
             generate_test_label_image,
+            draw_printer_icon,
             BROTHER_QL_AVAILABLE
         )
     except ImportError:
@@ -45,6 +47,7 @@ except ImportError:
         def find_brother_printer(preferred_name=None): return None
         def is_brother_usb_connected(): return False
         def generate_test_label_image(*args, **kwargs): return None
+        def draw_printer_icon(*args, **kwargs): pass
         def send_raw_to_printer(printer_name, raw_data, doc_name="Etiquetas"): raise RuntimeError("brother_raw no disponible")
         def convert_images_to_brother_raster(*args, **kwargs): raise RuntimeError("brother_raw no disponible")
 
@@ -237,25 +240,9 @@ def create_label_image(item: str, description: str, size: str = "60x30") -> Opti
         draw = ImageDraw.Draw(label)
         margin_x = 35
 
-        # 1. Logo DLS Archer (arriba a la izquierda) y al lado DLS DEPOSITO NEUQUEN
-        logo_path = os.path.join(STATIC_DIR, "img", "logo.png")
-        if not os.path.exists(logo_path):
-            logo_path = os.path.join(BASE_DIR, "logo.png")
-
+        # 1. Cabecera con Icono de Impresora y DLS DEPOSITO NEUQUEN (sin logo corporativo externo)
         lh = 130
-        if os.path.exists(logo_path):
-            try:
-                logo = Image.open(logo_path).convert("RGBA")
-                lw = int(logo.width * (lh / logo.height))
-                logo_resized = logo.resize((lw, lh), Image.Resampling.LANCZOS)
-                label.paste(logo_resized, (margin_x, 25), logo_resized)
-                pill_left = margin_x + lw + 20
-            except Exception as e:
-                print(f"Error cargando logo en etiqueta 60x95: {e}")
-                pill_left = margin_x
-        else:
-            pill_left = margin_x
-
+        pill_left = margin_x
         pill_right = w - margin_x
         pill_top = 25
         pill_bottom = 25 + lh
@@ -263,14 +250,24 @@ def create_label_image(item: str, description: str, size: str = "60x30") -> Opti
         # Recuadro redondeado sin relleno (borde negro, fondo blanco)
         draw.rounded_rectangle([pill_left, pill_top, pill_right, pill_bottom], radius=18, outline='black', width=4, fill='white')
 
-        # Texto DLS DEPOSITO NEUQUEN en Arial Bold negro sólido (tamaño 52)
+        # Icono de impresora y Texto DLS DEPOSITO NEUQUEN en Arial Bold centrado
         font_header = get_font("arialbd.ttf", 52)
         header_text = "DLS DEPOSITO NEUQUEN"
         hb = draw.textbbox((0, 0), header_text, font=font_header)
         hw = hb[2] - hb[0]
-        hx = pill_left + (pill_right - pill_left - hw) // 2
-        hy = pill_top + (pill_bottom - pill_top - (hb[3] - hb[1])) // 2 - 4
-        draw.text((hx, hy), header_text, font=font_header, fill='black')
+        hh = hb[3] - hb[1]
+
+        icon_size = 62
+        gap = 22
+        total_header_w = icon_size + gap + hw
+        start_hx = pill_left + (pill_right - pill_left - total_header_w) // 2
+        cy = pill_top + (pill_bottom - pill_top) // 2
+
+        try:
+            draw_printer_icon(draw, start_hx + icon_size // 2, cy, size=icon_size, fill='black')
+        except Exception:
+            pass
+        draw.text((start_hx + icon_size + gap, cy - hh // 2 - hb[1]), header_text, font=font_header, fill='black')
 
         # 2. Recuadro del Código de Ítem (Fondo NEGRO sólido con texto en BLANCO en Arial Black maximizado y perfectamente centrado)
         code_top = 175
@@ -1030,20 +1027,113 @@ def download_zip(req: GeneratePdfRequest):
 # ==========================================
 # ENDPOINTS DE IMPRESIÓN DIRECTA BROTHER QL (COMANDOS NATIVOS RAW)
 # ==========================================
+# ==========================================
+# GESTIÓN Y RELAY DE IMPRESORA EN RED (MULTI-PC)
+# ==========================================
+CONFIG_PRINTER_PATH = os.path.join(DATA_DIR, "printer_config.json")
+
+
+def load_printer_config() -> dict:
+    if os.path.exists(CONFIG_PRINTER_PATH):
+        try:
+            with open(CONFIG_PRINTER_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {"remote_printer_host": ""}
+
+
+def save_printer_config(cfg: dict):
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(CONFIG_PRINTER_PATH, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, indent=2)
+
+
+def relay_post_to_remote(endpoint: str, payload_dict: dict, remote_host: str) -> dict:
+    import urllib.request
+    clean_host = remote_host.replace("http://", "").replace("https://", "").rstrip("/")
+    url = f"http://{clean_host}{endpoint}"
+    data_bytes = json.dumps(payload_dict).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=data_bytes,
+        headers={"Content-Type": "application/json", "User-Agent": "LabelsRelay/1.0"},
+        method="POST"
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except Exception as e:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Error comunicando con el servidor de impresora remoto en '{clean_host}': {str(e)}. Verifique que la otra máquina tenga el servidor activo y la impresora conectada."
+        )
+
+
+class PrinterConfigModel(BaseModel):
+    remote_printer_host: str
+
+
+@app.get("/api/printer/config")
+def get_printer_config():
+    return load_printer_config()
+
+
+@app.post("/api/printer/config")
+def set_printer_config(cfg_in: PrinterConfigModel):
+    cfg = load_printer_config()
+    clean = cfg_in.remote_printer_host.strip().replace("http://", "").replace("https://", "").rstrip("/")
+    cfg["remote_printer_host"] = clean
+    save_printer_config(cfg)
+    return {"status": "success", "config": cfg}
+
+
 @app.get("/api/printers")
 def get_printers():
-    """Retorna las impresoras instaladas en Windows y si hay una Brother QL conectada."""
+    """Retorna las impresoras instaladas en Windows y si hay una Brother QL conectada local o remotamente."""
     all_p = list_installed_printers()
     detected = find_brother_printer()
     usb_ok = is_brother_usb_connected()
     import socket
     host_name = os.environ.get("COMPUTERNAME") or socket.gethostname()
+
+    cfg = load_printer_config()
+    remote_host = (cfg.get("remote_printer_host") or "").strip()
+    is_remote = False
+    remote_online = False
+
+    # Si NO está conectada localmente por USB pero tenemos configurado un host remoto
+    if not usb_ok and remote_host:
+        import urllib.request
+        clean_host = remote_host.replace("http://", "").replace("https://", "").rstrip("/")
+        try:
+            req = urllib.request.Request(
+                f"http://{clean_host}/api/printers",
+                headers={"User-Agent": "LabelsCheck/1.0"}
+            )
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                r_data = json.loads(resp.read().decode("utf-8"))
+                remote_online = True
+                if r_data.get("brother_found") and r_data.get("usb_physically_connected"):
+                    detected = r_data.get("detected_brother", "Brother QL-800")
+                    usb_ok = True
+                    is_remote = True
+                    host_name = f"{r_data.get('host_name', clean_host)} (En Red)"
+                elif r_data.get("brother_found"):
+                    detected = r_data.get("detected_brother", "Brother QL-800")
+                    host_name = f"{r_data.get('host_name', clean_host)} (En Red - USB Desconectado)"
+        except Exception:
+            remote_online = False
+
     return {
         "all_printers": all_p,
         "detected_brother": detected,
         "brother_found": detected is not None,
         "usb_physically_connected": usb_ok,
         "host_name": host_name,
+        "is_remote": is_remote,
+        "remote_printer_host": remote_host,
+        "remote_online": remote_online,
         "raw_engine_ready": BROTHER_QL_AVAILABLE
     }
 
@@ -1053,6 +1143,14 @@ def print_brother_raw(req: PrintBrotherRawRequest):
     """Envía comandos de impresión binarios nativos (Brother Raster) directo a la Brother QL-800 sin usar drivers ni diálogos."""
     if not req.items:
         raise HTTPException(status_code=400, detail="La lista de ítems está vacía")
+
+    cfg = load_printer_config()
+    remote_host = (cfg.get("remote_printer_host") or "").strip()
+    usb_ok = is_brother_usb_connected()
+
+    # Si localmente no está conectada por USB pero hay un host remoto configurado, relay automático
+    if not usb_ok and remote_host:
+        return relay_post_to_remote("/api/print-brother-raw", req.dict(), remote_host)
 
     # Determinar impresora
     target_printer = req.printer_name or find_brother_printer()
@@ -1157,10 +1255,17 @@ def test_printer(req: Optional[TestPrinterRequest] = None):
     host_name = os.environ.get("COMPUTERNAME") or socket.gethostname()
     usb_ok = is_brother_usb_connected()
 
+    cfg = load_printer_config()
+    remote_host = (cfg.get("remote_printer_host") or "").strip()
+
+    # Si localmente no está conectada pero hay host remoto configurado, relay
+    if not usb_ok and remote_host:
+        return relay_post_to_remote("/api/printer/test", (req.dict() if req else {}), remote_host)
+
     if not usb_ok:
         raise HTTPException(
             status_code=400,
-            detail=f"La impresora '{target_printer}' no está físicamente conectada por USB a este host ({host_name}). Conecta el cable USB a este equipo y vuelve a intentar."
+            detail=f"La impresora '{target_printer}' no está físicamente conectada por USB a este host ({host_name}). Conecta el cable USB a este equipo o configura la IP del equipo con la impresora en el botón 'En Red'."
         )
 
     roll_type = (req.roll_type if req else None) or "continuous"

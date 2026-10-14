@@ -194,42 +194,106 @@ def is_brother_usb_connected() -> bool:
         return False
 
 
+def draw_printer_icon(draw, cx, cy, size=40, fill="black"):
+    """Dibuja un icono vectorial nítido de impresora térmica para las etiquetas."""
+    half = size // 2
+    x0 = int(cx - half)
+    y0 = int(cy - half * 0.3)
+    x1 = int(cx + half)
+    y1 = int(cy + half * 0.5)
+
+    # Entrada de papel superior
+    draw.rectangle([cx - half * 0.6, cy - half * 0.9, cx + half * 0.6, y0], outline=fill, width=2)
+    # Cuerpo principal de la impresora
+    draw.rounded_rectangle([x0, y0, x1, y1], radius=4, outline=fill, width=3)
+    # LED de estado
+    draw.ellipse([x1 - 9, y0 + 5, x1 - 4, y0 + 10], fill=fill)
+    # Salida de papel
+    draw.rectangle([cx - half * 0.65, y0 + 8, cx + half * 0.65, y1 + half * 0.45], fill="white" if fill != "white" else "black", outline=fill, width=2)
+    # Líneas de texto impreso saliendo
+    draw.line([cx - half * 0.4, y0 + 14, cx + half * 0.4, y0 + 14], fill=fill, width=2)
+    draw.line([cx - half * 0.4, y0 + 20, cx + half * 0.2, y0 + 20], fill=fill, width=2)
+
+
 def generate_test_label_image(host_name: str = "Servidor", printer_name: str = "Brother QL-800") -> Image.Image:
-    """Genera una imagen PIL de etiqueta de prueba para verificar conectividad y corte físico."""
+    """Genera una imagen PIL de etiqueta de prueba 100% centrada y alineada con icono de impresora."""
     import datetime
     from PIL import ImageDraw, ImageFont
 
-    img = Image.new("RGB", (620, 290), "white")
+    w, h = 620, 290
+    img = Image.new("RGB", (w, h), "white")
     draw = ImageDraw.Draw(img)
 
-    # Marco exterior
-    draw.rectangle([6, 6, 614, 284], outline="black", width=3)
-    draw.rectangle([12, 12, 608, 278], outline="black", width=1)
+    margin = 8
+    # Marcos exteriores
+    draw.rectangle([margin, margin, w - margin, h - margin], outline="black", width=3)
+    draw.rectangle([margin + 5, margin + 5, w - margin - 5, h - margin - 5], outline="black", width=1)
 
-    # Encabezado inverso
-    draw.rectangle([14, 14, 606, 65], fill="black")
     try:
-        font_header = ImageFont.truetype("arialbd.ttf", 26)
-        font_sub = ImageFont.truetype("arialbd.ttf", 18)
-        font_body = ImageFont.truetype("arial.ttf", 16)
-        font_small = ImageFont.truetype("arial.ttf", 13)
+        font_title = ImageFont.truetype("arialbd.ttf", 25)
+        font_sub = ImageFont.truetype("arialbd.ttf", 17)
+        font_body = ImageFont.truetype("arial.ttf", 15)
+        font_footer = ImageFont.truetype("arialbd.ttf", 14)
     except Exception:
-        font_header = ImageFont.load_default()
+        font_title = ImageFont.load_default()
         font_sub = ImageFont.load_default()
         font_body = ImageFont.load_default()
-        font_small = ImageFont.load_default()
+        font_footer = ImageFont.load_default()
 
-    draw.text((25, 24), "TEST DE IMPRESORA BROTHER QL", fill="white", font=font_header)
+    # 1. Encabezado en Negro Inverso con Icono de Impresora y Título Centrado
+    header_h = 56
+    draw.rectangle([margin + 6, margin + 6, w - margin - 6, margin + 6 + header_h], fill="black")
 
+    title_text = "TEST DE CONEXION BROTHER QL"
+    tb = draw.textbbox((0, 0), title_text, font=font_title)
+    tw = tb[2] - tb[0]
+    th = tb[3] - tb[1]
+
+    icon_w = 38
+    gap = 14
+    total_w = icon_w + gap + tw
+    start_x = (w - total_w) // 2
+
+    # Icono de impresora en blanco sobre fondo negro
+    draw_printer_icon(draw, start_x + icon_w // 2, margin + 6 + header_h // 2, size=34, fill="white")
+    draw.text((start_x + icon_w + gap, margin + 6 + (header_h - th) // 2 - tb[1]), title_text, fill="white", font=font_title)
+
+    # 2. Subtítulo centrado
+    sub_text = f"{printer_name.upper()}  -  CALIBRACION 62mm"
+    sb = draw.textbbox((0, 0), sub_text, font=font_sub)
+    sw = sb[2] - sb[0]
+    draw.text(((w - sw) // 2, 82), sub_text, fill="black", font=font_sub)
+
+    # Línea divisoria centrada
+    draw.line([(w - 420) // 2, 112, (w + 420) // 2, 112], fill="black", width=2)
+
+    # 3. Líneas de información 100% centradas
     now_str = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-    draw.text((25, 80), f"IMPRESORA: {printer_name}", fill="black", font=font_sub)
-    draw.text((25, 115), f"HOST: {host_name}", fill="black", font=font_body)
-    draw.text((25, 145), f"FECHA/HORA: {now_str}", fill="black", font=font_body)
-    draw.text((25, 175), "COMUNICACION: RAW BYTECODE OK (SIN DRIVER)", fill="black", font=font_body)
-    draw.text((25, 205), "CALIBRACION: CINTA CONTINUA 62mm", fill="black", font=font_body)
+    lines = [
+        f"Host: {host_name}  |  Puerto: USB",
+        f"Fecha y Hora: {now_str}",
+        "Comunicación: RAW Bytecode Directo OK"
+    ]
 
-    draw.rectangle([14, 240, 606, 276], fill="#f1f5f9")
-    draw.text((25, 248), "SISTEMA DE ETIQUETAS DEPOSITO - CONEXION EXITOSA", fill="black", font=font_small)
+    curr_y = 124
+    for line in lines:
+        lb = draw.textbbox((0, 0), line, font=font_body)
+        lw = lb[2] - lb[0]
+        draw.text(((w - lw) // 2, curr_y), line, fill="black", font=font_body)
+        curr_y += 27
+
+    # 4. Pie de estado enmarcado en negro 100% centrado
+    footer_text = "[ OK ] CONEXION Y COMUNICACION EXITOSA"
+    fb = draw.textbbox((0, 0), footer_text, font=font_footer)
+    fw = fb[2] - fb[0]
+    fh = fb[3] - fb[1]
+
+    pill_w = fw + 36
+    pill_h = 32
+    pill_x0 = (w - pill_w) // 2
+    pill_y0 = 236
+    draw.rounded_rectangle([pill_x0, pill_y0, pill_x0 + pill_w, pill_y0 + pill_h], radius=6, fill="black")
+    draw.text(((w - fw) // 2, pill_y0 + (pill_h - fh) // 2 - fb[1]), footer_text, fill="white", font=font_footer)
 
     return img
 

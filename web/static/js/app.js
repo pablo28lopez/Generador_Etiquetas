@@ -123,25 +123,41 @@ async function initPrinters(showToastOnSuccess = false) {
     if (infoHost) infoHost.textContent = `Host: ${data.host_name || 'Servidor'}`;
     updateActiveRollBadge();
 
+    const inputRemote = document.getElementById("input-remote-host");
+    if (inputRemote && data.remote_printer_host && !document.activeElement?.isSameNode(inputRemote)) {
+      inputRemote.value = data.remote_printer_host;
+    }
+
     if (data.brother_found && data.usb_physically_connected) {
-      if (badgeText) badgeText.textContent = `${data.detected_brother} (USB Conectada)`;
       if (badgeDot) badgeDot.className = "w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
       if (badgeContainer) badgeContainer.className = "text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 flex items-center gap-1.5 shadow-xs";
 
-      if (infoBadge) {
-        infoBadge.textContent = "🟢 CONECTADA POR USB";
-        infoBadge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300";
+      if (data.is_remote) {
+        if (badgeText) badgeText.textContent = `${data.detected_brother} (En Red)`;
+        if (infoBadge) {
+          infoBadge.textContent = "🌐 CONECTADA EN RED";
+          infoBadge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-300";
+        }
+        if (infoPanel) {
+          infoPanel.className = "rounded-lg p-2.5 bg-indigo-50/50 border border-indigo-300 text-xs flex flex-col gap-1.5 transition-colors";
+        }
+        if (headerText) headerText.textContent = `${data.detected_brother}: En Red (${data.host_name})`;
+        if (headerStatus) headerStatus.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-800 border border-indigo-300 shadow-xs";
+      } else {
+        if (badgeText) badgeText.textContent = `${data.detected_brother} (USB Conectada)`;
+        if (infoBadge) {
+          infoBadge.textContent = "🟢 CONECTADA POR USB";
+          infoBadge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300";
+        }
+        if (infoPanel) {
+          infoPanel.className = "rounded-lg p-2.5 bg-emerald-50/50 border border-emerald-300 text-xs flex flex-col gap-1.5 transition-colors";
+        }
+        if (headerText) headerText.textContent = `${data.detected_brother}: Conectada y Lista`;
+        if (headerStatus) headerStatus.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 shadow-xs";
       }
-      if (infoPanel) {
-        infoPanel.className = "rounded-lg p-2.5 bg-emerald-50/50 border border-emerald-300 text-xs flex flex-col gap-1.5 transition-colors";
-      }
-
-      if (headerText) headerText.textContent = `${data.detected_brother}: Conectada y Lista`;
-      if (headerDot) headerDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
-      if (headerStatus) headerStatus.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 shadow-xs";
 
       if (showToastOnSuccess) {
-        showToast(`Impresora detectada y lista en USB: ${data.detected_brother}`, "success");
+        showToast(`Impresora detectada: ${data.detected_brother} (${data.is_remote ? 'En Red' : 'USB'})`, "success");
       }
     } else if (data.brother_found && !data.usb_physically_connected) {
       const hostLabel = data.host_name ? `en ${data.host_name}` : "en Servidor";
@@ -1039,6 +1055,69 @@ function setupExportEvents() {
 
   if (btnRefreshPrinters) {
     btnRefreshPrinters.addEventListener("click", () => initPrinters(true));
+  }
+
+  // --- CONFIGURACIÓN DE IMPRESORA EN OTRA MÁQUINA (RED) ---
+  const btnToggleRemote = document.getElementById("btn-toggle-remote-config");
+  const btnCloseRemote = document.getElementById("btn-close-remote-config");
+  const boxRemote = document.getElementById("remote-printer-config-box");
+  const inputRemote = document.getElementById("input-remote-host");
+  const btnSaveRemote = document.getElementById("btn-save-remote-host");
+  const btnResetLocal = document.getElementById("btn-reset-local-host");
+  const msgRemote = document.getElementById("remote-host-status-msg");
+
+  if (btnToggleRemote && boxRemote) {
+    btnToggleRemote.addEventListener("click", () => {
+      boxRemote.classList.toggle("hidden");
+    });
+  }
+  if (btnCloseRemote && boxRemote) {
+    btnCloseRemote.addEventListener("click", () => {
+      boxRemote.classList.add("hidden");
+    });
+  }
+  if (btnSaveRemote && inputRemote) {
+    btnSaveRemote.addEventListener("click", async () => {
+      const hostVal = inputRemote.value.trim();
+      if (!hostVal) {
+        showToast("Ingresa la IP del equipo con la impresora (ej. 10.12.70.89:8000)", "warning");
+        return;
+      }
+      btnSaveRemote.disabled = true;
+      if (msgRemote) msgRemote.textContent = "Guardando y comprobando conexión...";
+      try {
+        const res = await fetch("/api/printer/config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ remote_printer_host: hostVal })
+        });
+        if (!res.ok) throw new Error("Error guardando dirección de impresora");
+        showToast(`Conexión en red guardada: ${hostVal}`, "success");
+        if (msgRemote) msgRemote.textContent = `Configurado hacia ${hostVal}. Comprobando...`;
+        await initPrinters(true);
+      } catch (err) {
+        showToast(err.message, "error");
+      } finally {
+        btnSaveRemote.disabled = false;
+      }
+    });
+  }
+  if (btnResetLocal) {
+    btnResetLocal.addEventListener("click", async () => {
+      if (inputRemote) inputRemote.value = "";
+      try {
+        await fetch("/api/printer/config", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ remote_printer_host: "" })
+        });
+        showToast("Configurado para buscar Brother en USB local", "info");
+        if (msgRemote) msgRemote.textContent = "Modo USB local activado.";
+        await initPrinters(true);
+      } catch (err) {
+        showToast(err.message, "error");
+      }
+    });
   }
 
   if (selectRoll) {
