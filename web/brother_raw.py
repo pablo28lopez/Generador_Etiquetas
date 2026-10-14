@@ -160,25 +160,24 @@ def probe_printer_open(printer_name: str) -> bool:
     """Verifica si la impresora especificada (local o en red) está disponible (vía winspool en Windows o socket en Linux/Docker)."""
     if not printer_name:
         return False
+
+    if winspool:
+        handle = wintypes.HANDLE()
+        try:
+            ok = winspool.OpenPrinterW(printer_name, ctypes.byref(handle), None)
+            if ok and handle.value:
+                winspool.ClosePrinter(handle)
+                return True
+            return False
+        except Exception:
+            return False
+
+    # En Linux / Docker (sin winspool)
     if printer_name.startswith(r"\\") or printer_name.startswith("//"):
         parts = printer_name.replace("/", "\\").lstrip("\\").split("\\")
         host = parts[0]
-        if not is_host_alive(host):
-            return False
-        if sys.platform != "win32":
-            # En Linux / Docker, si el host Windows responde al puerto 445 (SMB), está disponible
-            return True
-    if not winspool:
-        return False
-    handle = wintypes.HANDLE()
-    try:
-        ok = winspool.OpenPrinterW(printer_name, ctypes.byref(handle), None)
-        if ok and handle.value:
-            winspool.ClosePrinter(handle)
-            return True
-        return False
-    except Exception:
-        return False
+        return is_host_alive(host)
+    return False
 
 
 def is_brother_usb_local() -> bool:
