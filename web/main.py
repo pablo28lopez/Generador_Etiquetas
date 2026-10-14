@@ -25,6 +25,8 @@ try:
         send_raw_to_printer,
         convert_images_to_brother_raster,
         is_brother_usb_connected,
+        get_active_brother_printer,
+        probe_printer_open,
         generate_test_label_image,
         draw_printer_icon,
         BROTHER_QL_AVAILABLE
@@ -37,6 +39,8 @@ except ImportError:
             send_raw_to_printer,
             convert_images_to_brother_raster,
             is_brother_usb_connected,
+            get_active_brother_printer,
+            probe_printer_open,
             generate_test_label_image,
             draw_printer_icon,
             BROTHER_QL_AVAILABLE
@@ -45,7 +49,9 @@ except ImportError:
         BROTHER_QL_AVAILABLE = False
         def list_installed_printers(): return []
         def find_brother_printer(preferred_name=None): return None
-        def is_brother_usb_connected(): return False
+        def is_brother_usb_connected(*args, **kwargs): return False
+        def get_active_brother_printer(*args, **kwargs): return {"detected_brother": None, "brother_found": False, "connected": False, "host_name": "", "is_remote": False, "location": ""}
+        def probe_printer_open(name): return False
         def generate_test_label_image(*args, **kwargs): return None
         def draw_printer_icon(*args, **kwargs): pass
         def send_raw_to_printer(printer_name, raw_data, doc_name="Etiquetas"): raise RuntimeError("brother_raw no disponible")
@@ -1092,38 +1098,19 @@ def set_printer_config(cfg_in: PrinterConfigModel):
 def get_printers():
     """Retorna las impresoras instaladas en Windows y si hay una Brother QL conectada local o remotamente."""
     all_p = list_installed_printers()
-    detected = find_brother_printer()
-    usb_ok = is_brother_usb_connected()
-    import socket
-    host_name = os.environ.get("COMPUTERNAME") or socket.gethostname()
-
     cfg = load_printer_config()
     remote_host = (cfg.get("remote_printer_host") or "").strip()
-    is_remote = False
-    remote_online = False
 
-    # Si NO está conectada localmente por USB pero tenemos configurado un host remoto
-    if not usb_ok and remote_host:
-        import urllib.request
-        clean_host = remote_host.replace("http://", "").replace("https://", "").rstrip("/")
-        try:
-            req = urllib.request.Request(
-                f"http://{clean_host}/api/printers",
-                headers={"User-Agent": "LabelsCheck/1.0"}
-            )
-            with urllib.request.urlopen(req, timeout=3) as resp:
-                r_data = json.loads(resp.read().decode("utf-8"))
-                remote_online = True
-                if r_data.get("brother_found") and r_data.get("usb_physically_connected"):
-                    detected = r_data.get("detected_brother", "Brother QL-800")
-                    usb_ok = True
-                    is_remote = True
-                    host_name = f"{r_data.get('host_name', clean_host)} (En Red)"
-                elif r_data.get("brother_found"):
-                    detected = r_data.get("detected_brother", "Brother QL-800")
-                    host_name = f"{r_data.get('host_name', clean_host)} (En Red - USB Desconectado)"
-        except Exception:
-            remote_online = False
+    active_info = get_active_brother_printer(configured_remote_host=remote_host)
+    detected = active_info.get("detected_brother")
+    usb_ok = bool(active_info.get("connected", False))
+    host_name = active_info.get("host_name") or os.environ.get("COMPUTERNAME", "PC")
+    is_remote = bool(active_info.get("is_remote", False))
+    location = active_info.get("location", "")
+
+    # Asegurar que la impresora detectada esté en la lista all_p si es válida
+    if detected and detected not in all_p:
+        all_p.insert(0, detected)
 
     return {
         "all_printers": all_p,
@@ -1132,8 +1119,9 @@ def get_printers():
         "usb_physically_connected": usb_ok,
         "host_name": host_name,
         "is_remote": is_remote,
+        "location_info": location,
         "remote_printer_host": remote_host,
-        "remote_online": remote_online,
+        "remote_online": usb_ok if is_remote else False,
         "raw_engine_ready": BROTHER_QL_AVAILABLE
     }
 
@@ -1146,19 +1134,23 @@ def print_brother_raw(req: PrintBrotherRawRequest):
 
     cfg = load_printer_config()
     remote_host = (cfg.get("remote_printer_host") or "").strip()
-    usb_ok = is_brother_usb_connected()
 
-    # Si localmente no está conectada por USB pero hay un host remoto configurado, relay automático
-    if not usb_ok and remote_host:
-        return relay_post_to_remote("/api/print-brother-raw", req.dict(), remote_host)
+    active_info = get_active_brother_printer(preferred_name=req.printer_name, configured_remote_host=remote_host)
+    target_printer = active_info.get("detected_brother") or req.printer_name or find_brother_printer()
+    usb_ok = bool(active_info.get("connected", False))
 
-    # Determinar impresora
-    target_printer = req.printer_name or find_brother_printer()
-    if not target_printer:
-        printers_list = list_installed_printers()
+    # Si se solicitó la impresora local pero está desconectada y hay una en red activa, auto-fallback
+    if not usb_ok and req.printer_name and not req.printer_name.startswith(r"\\"):
+        fallback_info = get_active_brother_printer(configured_remote_host=remote_host)
+        if fallback_info.get("connected"):
+            target_printer = fallback_info.get("detected_brother")
+            usb_ok = True
+            active_info = fallback_info
+
+    if not target_printer or not usb_ok:
         raise HTTPException(
             status_code=400,
-            detail=f"No se detectó ninguna impresora Brother QL conectada por USB en este equipo. Impresoras Windows detectadas: {', '.join(printers_list) if printers_list else 'Ninguna'}. Conecta la Brother QL-800 por USB o selecciona una impresora."
+            detail="La impresora Brother QL no está conectada por puerto USB ni en este equipo ni en la red (10.12.70.89). Conecta el cable USB a este equipo o al del compañero y comprueba que esté encendida."
         )
 
     label_size = req.size or "60x30"
@@ -1195,9 +1187,13 @@ def print_brother_raw(req: PrintBrotherRawRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error enviando comandos a '{target_printer}': {str(e)}")
 
+    printer_display = target_printer
+    if target_printer.startswith(r"\\"):
+        printer_display = f"Brother QL-800 en Red ({active_info.get('host_name', '10.12.70.89')})"
+
     return {
         "status": "success",
-        "message": f"¡Éxito! Se enviaron {len(images_to_print)} etiqueta(s) directamente a '{target_printer}' mediante comandos RAW (sin driver).",
+        "message": f"¡Éxito! Se enviaron {len(images_to_print)} etiqueta(s) directamente a '{printer_display}' mediante comandos RAW (sin driver).",
         "printer": target_printer,
         "total_labels": len(images_to_print),
         "bytes_sent": bytes_sent
@@ -1244,32 +1240,30 @@ def download_prn(req: PrintBrotherRawRequest):
 @app.post("/api/printer/test")
 def test_printer(req: Optional[TestPrinterRequest] = None):
     """Envía una etiqueta de prueba física a la Brother QL-800 para verificar la conexión y calibración."""
-    target_printer = (req.printer_name if req else None) or find_brother_printer()
-    if not target_printer:
-        raise HTTPException(
-            status_code=400,
-            detail="No se detectó ninguna impresora Brother QL instalada en el sistema. Asegúrate de tener los drivers instalados o una Brother QL configurada."
-        )
-
-    import socket
-    host_name = os.environ.get("COMPUTERNAME") or socket.gethostname()
-    usb_ok = is_brother_usb_connected()
-
     cfg = load_printer_config()
     remote_host = (cfg.get("remote_printer_host") or "").strip()
 
-    # Si localmente no está conectada pero hay host remoto configurado, relay
-    if not usb_ok and remote_host:
-        return relay_post_to_remote("/api/printer/test", (req.dict() if req else {}), remote_host)
+    req_name = req.printer_name if req else None
+    active_info = get_active_brother_printer(preferred_name=req_name, configured_remote_host=remote_host)
+    target_printer = active_info.get("detected_brother") or req_name or find_brother_printer()
+    usb_ok = bool(active_info.get("connected", False))
 
-    if not usb_ok:
+    if not usb_ok and req_name and not req_name.startswith(r"\\"):
+        fallback_info = get_active_brother_printer(configured_remote_host=remote_host)
+        if fallback_info.get("connected"):
+            target_printer = fallback_info.get("detected_brother")
+            usb_ok = True
+            active_info = fallback_info
+
+    if not target_printer or not usb_ok:
         raise HTTPException(
             status_code=400,
-            detail=f"La impresora '{target_printer}' no está físicamente conectada por USB a este host ({host_name}). Conecta el cable USB a este equipo o configura la IP del equipo con la impresora en el botón 'En Red'."
+            detail="La impresora Brother QL-800 no está conectada por puerto USB ni en este equipo ni en la red (10.12.70.89). Conecta el cable USB o verifica que la máquina compañera esté encendida."
         )
 
+    host_display = active_info.get("host_name") or os.environ.get("COMPUTERNAME", "Servidor")
     roll_type = (req.roll_type if req else None) or "continuous"
-    test_img = generate_test_label_image(host_name=host_name, printer_name=target_printer)
+    test_img = generate_test_label_image(host_name=host_display, printer_name="Brother QL-800")
     if not test_img:
         raise HTTPException(status_code=500, detail="Error generando la imagen de la etiqueta de prueba.")
 
@@ -1289,11 +1283,15 @@ def test_printer(req: Optional[TestPrinterRequest] = None):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error comunicando con '{target_printer}': {str(e)}")
 
+    printer_display = target_printer
+    if target_printer.startswith(r"\\"):
+        printer_display = f"Brother QL-800 en Red ({host_display})"
+
     return {
         "status": "success",
-        "message": f"¡Prueba exitosa! Conexión verificada y etiqueta de prueba enviada a '{target_printer}' ({bytes_sent} bytes enviados por USB).",
+        "message": f"¡Prueba exitosa! Conexión verificada y etiqueta de prueba enviada a '{printer_display}' ({bytes_sent} bytes enviados).",
         "printer": target_printer,
-        "host_name": host_name,
+        "host_name": host_display,
         "bytes_sent": bytes_sent
     }
 

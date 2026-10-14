@@ -135,50 +135,56 @@ def list_installed_printers() -> List[str]:
     return names
 
 
-def find_brother_printer(preferred_name: Optional[str] = None) -> Optional[str]:
-    """Busca automáticamente una impresora Brother QL instalada en el sistema."""
-    printers = list_installed_printers()
-    if not printers:
-        return preferred_name
-
-    # 1. Si se especificó un nombre preferido y existe
-    if preferred_name and preferred_name in printers:
-        return preferred_name
-
-    # 2. Buscar 'Brother QL-800'
-    for p in printers:
-        if "QL-800" in p.upper():
-            return p
-
-    # 3. Buscar cualquier Brother QL
-    for p in printers:
-        p_u = p.upper()
-        if "BROTHER" in p_u and "QL" in p_u:
-            return p
-
-    # 4. Buscar cualquier Brother
-    for p in printers:
-        if "BROTHER" in p.upper():
-            return p
-
-    # 5. Si no se encontró ninguna Brother, retornar la primera o preferred
-    return preferred_name
-
-
+import os
+import socket
 import time
+import subprocess
 
-_usb_cache = {"time": 0.0, "status": False}
+_usb_cache = {"time": 0.0, "local_status": False}
+_active_printer_cache = {"time": 0.0, "data": None}
 
-def is_brother_usb_connected() -> bool:
-    """Verifica si la impresora Brother QL-800 está físicamente conectada por USB a este host."""
+
+def is_host_alive(host: str, port: int = 445, timeout: float = 0.3) -> bool:
+    """Verifica en pocos milisegundos si un host remoto de Windows está encendido y accesible en la red."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(timeout)
+        res = s.connect_ex((host, port))
+        s.close()
+        return res == 0
+    except Exception:
+        return False
+
+
+def probe_printer_open(printer_name: str) -> bool:
+    """Verifica si winspool.drv puede abrir la impresora especificada (local o en red)."""
+    if not winspool or not printer_name:
+        return False
+    if printer_name.startswith(r"\\"):
+        parts = printer_name.lstrip("\\").split("\\")
+        host = parts[0]
+        if not is_host_alive(host):
+            return False
+    handle = wintypes.HANDLE()
+    try:
+        ok = winspool.OpenPrinterW(printer_name, ctypes.byref(handle), None)
+        if ok and handle.value:
+            winspool.ClosePrinter(handle)
+            return True
+        return False
+    except Exception:
+        return False
+
+
+def is_brother_usb_local() -> bool:
+    """Verifica si la impresora Brother QL está físicamente conectada por USB a este host local."""
     if sys.platform != "win32":
         return False
     now = time.time()
     if now - _usb_cache["time"] < 2.5:
-        return _usb_cache["status"]
+        return _usb_cache["local_status"]
 
     try:
-        import subprocess
         res = subprocess.run(
             ["powershell", "-NoProfile", "-Command", "(Get-PnpDevice -PresentOnly -ErrorAction SilentlyContinue | Where-Object { $_.FriendlyName -like '*Brother*' -or $_.InstanceId -like '*04F9*' }).Count"],
             capture_output=True,
@@ -188,10 +194,144 @@ def is_brother_usb_connected() -> bool:
         count = int(res.stdout.strip() or 0)
         status = count > 0
         _usb_cache["time"] = now
-        _usb_cache["status"] = status
+        _usb_cache["local_status"] = status
         return status
     except Exception:
         return False
+
+
+def get_active_brother_printer(preferred_name: Optional[str] = None, configured_remote_host: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Detecta automáticamente la impresora Brother QL activa donde sea que esté conectada por puerto USB:
+    1. Si está conectada por USB localmente en este host.
+    2. Si está conectada por USB en una máquina compañera en red (ej: 10.12.70.89 o host configurado).
+    
+    Retorna un diccionario completo de estado y nombres para el frontend y los endpoints.
+    """
+    now = time.time()
+    if not preferred_name and now - _active_printer_cache["time"] < 2.0 and _active_printer_cache["data"] is not None:
+        return _active_printer_cache["data"]
+
+    local_host = os.environ.get("COMPUTERNAME") or socket.gethostname()
+    installed = list_installed_printers()
+
+    # 1. Si se solicitó un nombre preferido y es alcanzable
+    if preferred_name:
+        is_pref_remote = preferred_name.startswith(r"\\")
+        if is_pref_remote:
+            if probe_printer_open(preferred_name):
+                parts = preferred_name.lstrip("\\").split("\\")
+                r_host = parts[0]
+                return {
+                    "detected_brother": preferred_name,
+                    "brother_found": True,
+                    "connected": True,
+                    "host_name": r_host,
+                    "is_remote": True,
+                    "location": f"USB en Red ({r_host})"
+                }
+        else:
+            local_ok = is_brother_usb_local()
+            return {
+                "detected_brother": preferred_name,
+                "brother_found": True,
+                "connected": local_ok,
+                "host_name": local_host,
+                "is_remote": False,
+                "location": f"USB Local ({local_host})" if local_ok else "Desconectada"
+            }
+
+    # 2. Verificar si está conectada físicamente por USB a esta máquina local
+    if is_brother_usb_local():
+        local_target = None
+        for p in installed:
+            if not p.startswith(r"\\") and "QL-800" in p.upper():
+                local_target = p
+                break
+        if not local_target:
+            for p in installed:
+                if not p.startswith(r"\\") and "BROTHER" in p.upper():
+                    local_target = p
+                    break
+        local_target = local_target or "Brother QL-800"
+
+        res = {
+            "detected_brother": local_target,
+            "brother_found": True,
+            "connected": True,
+            "host_name": local_host,
+            "is_remote": False,
+            "location": f"USB Local ({local_host})"
+        }
+        _active_printer_cache["time"] = now
+        _active_printer_cache["data"] = res
+        return res
+
+    # 3. Si NO está por USB local, comprobar impresoras Brother en red conocidas / conectadas
+    network_candidates = []
+    for p in installed:
+        if p.startswith(r"\\") and "BROTHER" in p.upper():
+            network_candidates.append(p)
+
+    if configured_remote_host:
+        clean_cfg = configured_remote_host.replace("http://", "").replace("https://", "").split(":")[0].strip()
+        if clean_cfg:
+            cand = rf"\\{clean_cfg}\Brother QL-800"
+            if cand not in network_candidates:
+                network_candidates.append(cand)
+
+    known_coworker = r"\\10.12.70.89\Brother QL-800"
+    if known_coworker not in network_candidates:
+        network_candidates.append(known_coworker)
+
+    for cand in network_candidates:
+        if probe_printer_open(cand):
+            parts = cand.lstrip("\\").split("\\")
+            r_host = parts[0]
+            res = {
+                "detected_brother": cand,
+                "brother_found": True,
+                "connected": True,
+                "host_name": r_host,
+                "is_remote": True,
+                "location": f"USB en Red ({r_host})"
+            }
+            _active_printer_cache["time"] = now
+            _active_printer_cache["data"] = res
+            return res
+
+    # 4. Fallback: No está conectada ni localmente ni en red
+    fallback_p = "Brother QL-800"
+    for p in installed:
+        if "QL-800" in p.upper():
+            fallback_p = p
+            break
+        elif "BROTHER" in p.upper():
+            fallback_p = p
+
+    res = {
+        "detected_brother": fallback_p,
+        "brother_found": True,
+        "connected": False,
+        "host_name": local_host,
+        "is_remote": False,
+        "location": "Desconectada"
+    }
+    _active_printer_cache["time"] = now
+    _active_printer_cache["data"] = res
+    return res
+
+
+def find_brother_printer(preferred_name: Optional[str] = None) -> Optional[str]:
+    """Busca automáticamente la impresora Brother QL activa (local o en red)."""
+    info = get_active_brother_printer(preferred_name=preferred_name)
+    return info.get("detected_brother") or preferred_name or "Brother QL-800"
+
+
+def is_brother_usb_connected(printer_name: Optional[str] = None) -> bool:
+    """Verifica si la impresora Brother QL está conectada por USB (en este equipo o en red)."""
+    info = get_active_brother_printer(preferred_name=printer_name)
+    return bool(info.get("connected", False))
 
 
 def draw_printer_icon(draw, cx, cy, size=40, fill="black"):

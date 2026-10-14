@@ -94,7 +94,10 @@ async function initPrinters(showToastOnSuccess = false) {
       if (data.detected_brother) {
         const opt = document.createElement("option");
         opt.value = data.detected_brother;
-        opt.textContent = `⭐ ${data.detected_brother} (Detectada)`;
+        const optLabel = data.is_remote
+          ? `⭐ Brother QL-800 (en Red: ${data.host_name})`
+          : `⭐ ${data.detected_brother} (USB Local)`;
+        opt.textContent = optLabel;
         opt.selected = true;
         selectPrinter.appendChild(opt);
       } else {
@@ -108,7 +111,7 @@ async function initPrinters(showToastOnSuccess = false) {
         if (p !== data.detected_brother) {
           const opt = document.createElement("option");
           opt.value = p;
-          opt.textContent = p;
+          opt.textContent = p.startsWith("\\\\") ? `🌐 ${p}` : p;
           selectPrinter.appendChild(opt);
         }
       });
@@ -119,7 +122,8 @@ async function initPrinters(showToastOnSuccess = false) {
     const headerText = document.getElementById("header-printer-text");
     const headerDot = headerStatus?.querySelector(".rounded-full");
 
-    if (infoPrinter) infoPrinter.textContent = data.detected_brother || "No detectada";
+    const displayPrinterName = data.is_remote ? `Brother QL-800 (Red ${data.host_name})` : (data.detected_brother || "No detectada");
+    if (infoPrinter) infoPrinter.textContent = displayPrinterName;
     if (infoHost) infoHost.textContent = `Host: ${data.host_name || 'Servidor'}`;
     updateActiveRollBadge();
 
@@ -133,16 +137,17 @@ async function initPrinters(showToastOnSuccess = false) {
       if (badgeContainer) badgeContainer.className = "text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 flex items-center gap-1.5 shadow-xs";
 
       if (data.is_remote) {
-        if (badgeText) badgeText.textContent = `${data.detected_brother} (En Red)`;
+        if (badgeText) badgeText.textContent = `Brother QL-800 (en Red: ${data.host_name})`;
         if (infoBadge) {
-          infoBadge.textContent = "🌐 CONECTADA EN RED";
-          infoBadge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-300";
+          infoBadge.textContent = "🟢 CONECTADA POR USB (EN RED)";
+          infoBadge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300";
         }
         if (infoPanel) {
-          infoPanel.className = "rounded-lg p-2.5 bg-indigo-50/50 border border-indigo-300 text-xs flex flex-col gap-1.5 transition-colors";
+          infoPanel.className = "rounded-lg p-2.5 bg-emerald-50/50 border border-emerald-300 text-xs flex flex-col gap-1.5 transition-colors";
         }
-        if (headerText) headerText.textContent = `${data.detected_brother}: En Red (${data.host_name})`;
-        if (headerStatus) headerStatus.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-800 border border-indigo-300 shadow-xs";
+        if (headerText) headerText.textContent = `Brother QL-800: Conectada (en ${data.host_name})`;
+        if (headerStatus) headerStatus.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 shadow-xs";
+        if (headerDot) headerDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
       } else {
         if (badgeText) badgeText.textContent = `${data.detected_brother} (USB Conectada)`;
         if (infoBadge) {
@@ -154,14 +159,15 @@ async function initPrinters(showToastOnSuccess = false) {
         }
         if (headerText) headerText.textContent = `${data.detected_brother}: Conectada y Lista`;
         if (headerStatus) headerStatus.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 shadow-xs";
+        if (headerDot) headerDot.className = "w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse";
       }
 
       if (showToastOnSuccess) {
-        showToast(`Impresora detectada: ${data.detected_brother} (${data.is_remote ? 'En Red' : 'USB'})`, "success");
+        const netMsg = data.is_remote ? `en red (${data.host_name})` : 'USB local';
+        showToast(`Impresora Brother QL-800 lista (${netMsg})`, "success");
       }
     } else if (data.brother_found && !data.usb_physically_connected) {
-      const hostLabel = data.host_name ? `en ${data.host_name}` : "en Servidor";
-      if (badgeText) badgeText.textContent = `${data.detected_brother} (USB Desconectado)`;
+      if (badgeText) badgeText.textContent = "Brother QL-800 (USB Desconectado)";
       if (badgeDot) badgeDot.className = "w-2 h-2 rounded-full bg-rose-500";
       if (badgeContainer) badgeContainer.className = "text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-800 border border-rose-300 flex items-center gap-1.5 shadow-xs";
 
@@ -173,7 +179,7 @@ async function initPrinters(showToastOnSuccess = false) {
         infoPanel.className = "rounded-lg p-2.5 bg-rose-50/50 border border-rose-300 text-xs flex flex-col gap-1.5 transition-colors";
       }
 
-      if (headerText) headerText.textContent = `Brother: USB desconectado (${hostLabel})`;
+      if (headerText) headerText.textContent = "Brother: USB no detectado (conecta cable USB)";
       if (headerDot) headerDot.className = "w-2.5 h-2.5 rounded-full bg-rose-500";
       if (headerStatus) headerStatus.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-800 border border-rose-300 shadow-xs";
 
