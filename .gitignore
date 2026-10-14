@@ -24,3 +24,4 @@ Thumbs.db
 .vscode/
 .idea/
 sample_new_design.png
+web/data/printer_config.json

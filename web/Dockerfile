@@ -3,8 +3,8 @@
 # ==========================================
 FROM python:3.11-slim
 
-LABEL maintainer="Logística y Depósito"
-LABEL description="Generador de Etiquetas PWA con Código de Barras e Impresión PDF"
+LABEL maintainer="Logística y Depósito - DLS Archer"
+LABEL description="Generador de Etiquetas PWA con Código de Barras e Impresión Térmica Directa Brother QL"
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -12,24 +12,28 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Instalar herramientas básicas del sistema (curl para healthcheck)
+# Instalar herramientas del sistema:
+# - curl: para el healthcheck del contenedor
+# - smbclient: para imprimir en impresoras compartidas Windows (\\IP\Brother QL-800) desde Linux
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    smbclient \
     && rm -rf /var/lib/apt/lists/*
 
-# Instalar dependencias
+# Instalar dependencias Python
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Copiar aplicación, fuentes y estáticos
-COPY main.py .
+# Copiar aplicación, módulos, fuentes, logos y estáticos
+COPY main.py brother_raw.py logo.png ./
 COPY fonts/ ./fonts/
 COPY static/ ./static/
 COPY data/ ./data/
 
-# Usuario seguro no-root
+# Crear usuario seguro no-root con permisos de escritura sobre /app/data
 RUN useradd -m -u 1000 appuser && \
+    mkdir -p /app/data && \
     chown -R appuser:appuser /app
 USER appuser
 

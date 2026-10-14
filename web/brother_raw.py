@@ -157,14 +157,19 @@ def is_host_alive(host: str, port: int = 445, timeout: float = 0.3) -> bool:
 
 
 def probe_printer_open(printer_name: str) -> bool:
-    """Verifica si winspool.drv puede abrir la impresora especificada (local o en red)."""
-    if not winspool or not printer_name:
+    """Verifica si la impresora especificada (local o en red) está disponible (vía winspool en Windows o socket en Linux/Docker)."""
+    if not printer_name:
         return False
-    if printer_name.startswith(r"\\"):
-        parts = printer_name.lstrip("\\").split("\\")
+    if printer_name.startswith(r"\\") or printer_name.startswith("//"):
+        parts = printer_name.replace("/", "\\").lstrip("\\").split("\\")
         host = parts[0]
         if not is_host_alive(host):
             return False
+        if sys.platform != "win32":
+            # En Linux / Docker, si el host Windows responde al puerto 445 (SMB), está disponible
+            return True
+    if not winspool:
+        return False
     handle = wintypes.HANDLE()
     try:
         ok = winspool.OpenPrinterW(printer_name, ctypes.byref(handle), None)
@@ -463,7 +468,27 @@ def generate_test_label_image(host_name: str = "Servidor", printer_name: str = "
 
 
 def send_raw_to_printer(printer_name: str, raw_data: bytes, doc_name: str = "Etiquetas Brother QL") -> int:
-    """Envía un flujo de bytes crudos (RAW) directamente a la impresora usando winspool.drv."""
+    """Envía un flujo de bytes crudos (RAW) directamente a la impresora usando winspool.drv en Windows o smbclient en Linux/Docker."""
+    if sys.platform != "win32":
+        # Soporte para Docker / Linux imprimiendo en impresoras compartidas de Windows (ej: \\10.12.70.89\Brother QL-800)
+        if printer_name.startswith(r"\\") or printer_name.startswith("//"):
+            clean_share = printer_name.replace("\\", "/")
+            if not clean_share.startswith("//"):
+                clean_share = "//" + clean_share.lstrip("/")
+            try:
+                cmd = ["smbclient", clean_share, "-N", "-c", "print -"]
+                p = subprocess.run(cmd, input=raw_data, capture_output=True, timeout=15)
+                if p.returncode == 0:
+                    return len(raw_data)
+                else:
+                    err_msg = p.stderr.decode("utf-8", errors="ignore") or p.stdout.decode("utf-8", errors="ignore")
+                    raise RuntimeError(f"Error smbclient al imprimir en '{printer_name}': {err_msg}")
+            except FileNotFoundError:
+                raise RuntimeError("smbclient no está instalado en el contenedor Linux/Docker. Instale el paquete 'smbclient'.")
+            except Exception as e:
+                raise RuntimeError(f"Error enviando impresión en Linux/Docker a '{printer_name}': {str(e)}")
+        raise RuntimeError("En Linux/Docker la impresión directa RAW requiere una impresora compartida en red (formato \\\\IP\\Impresora).")
+
     if not winspool:
         raise RuntimeError("winspool.drv solo está disponible en sistemas Microsoft Windows.")
 

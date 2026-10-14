@@ -1188,7 +1188,7 @@ function setupExportEvents() {
 
       btnPrintBrotherRaw.disabled = true;
       const originalHtml = btnPrintBrotherRaw.innerHTML;
-      btnPrintBrotherRaw.innerHTML = `<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i><span>Enviando comandos a Brother QL (${totalLabels} etiq)...</span>`;
+      btnPrintBrotherRaw.innerHTML = `<i data-lucide="loader-2" class="w-7 h-7 animate-spin"></i><span>Enviando comandos a Brother QL (${totalLabels} etiq)...</span>`;
       if (window.lucide) lucide.createIcons();
 
       try {

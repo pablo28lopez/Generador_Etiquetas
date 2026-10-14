@@ -1,5 +1,5 @@
 // Service Worker para Generador de Etiquetas PWA
-const CACHE_NAME = 'etiquetas-pwa-v10';
+const CACHE_NAME = 'etiquetas-pwa-v11';
 const ASSETS_TO_CACHE = [
   '/',
   '/manifest.json',

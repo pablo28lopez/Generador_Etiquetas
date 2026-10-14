@@ -283,10 +283,10 @@
           </div>
 
           <!-- BOTONES DE ACCIÓN PRINCIPALES DEBAJO DE LA VISTA PREVIA -->
-          <div class="flex flex-col gap-2 pt-2 border-t border-slate-100">
-            <!-- BOTÓN PRINCIPAL (VERDE): IMPRIMIR ETIQUETA CON ICONO DE IMPRESORA -->
-            <button id="btn-print-brother-raw" class="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-md hover:shadow-lg flex items-center justify-center gap-2.5 transition-all cursor-pointer text-sm">
-              <i data-lucide="printer" class="w-5 h-5"></i>
+          <div class="flex flex-col gap-2.5 pt-2 border-t border-slate-100">
+            <!-- BOTÓN PRINCIPAL (VERDE): IMPRIMIR ETIQUETA 50% MÁS GRANDE CON ICONO DE IMPRESORA -->
+            <button id="btn-print-brother-raw" class="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-black py-5 px-6 rounded-2xl shadow-lg hover:shadow-xl flex items-center justify-center gap-3 transition-all cursor-pointer text-lg tracking-wide hover:scale-[1.01] active:scale-[0.99]">
+              <i data-lucide="printer" class="w-7 h-7"></i>
               <span id="lbl-btn-brother-raw">IMPRIMIR ETIQUETA</span>
             </button>
 
@@ -486,6 +486,6 @@
 
   <iframe id="print-iframe" class="hidden"></iframe>
   <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"></div>
-  <script src="/static/js/app.js?v=2.6.5"></script>
+  <script src="/static/js/app.js?v=2.6.6"></script>
 </body>
 </html>
